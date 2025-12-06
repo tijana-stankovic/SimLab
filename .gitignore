@@ -1,2 +1,4 @@
 # .gitignore for SimLab project
 .vscode/
+bin/
+obj/
