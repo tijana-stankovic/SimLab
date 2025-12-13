@@ -1,7 +1,6 @@
-﻿namespace SimLab;
+﻿using SimLabController;
 
-using SimLabController;
-using System;
+namespace SimLab;
 
 /// <summary>
 /// Represents the SimLab application entry point.

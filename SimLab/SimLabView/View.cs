@@ -1,8 +1,6 @@
-namespace SimLabView;
-
 using SimLabStatus;
-using System;
-using System.Collections.Generic;
+
+namespace SimLabView;
 
 /// <summary>
 /// A class with methods for displaying various information to the user and performing log data operations.

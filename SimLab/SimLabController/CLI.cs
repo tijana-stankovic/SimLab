@@ -1,9 +1,6 @@
-namespace SimLabController;
-
 using SimLabView;
-using System;
-using System.Collections.Generic;
-using System.IO;
+
+namespace SimLabController;
 
 /// <summary>
 /// Command Line Interface (CLI) class with methods for handling user input.

@@ -1,7 +1,7 @@
-namespace SimLabController;
-
 using SimLabStatus;
 using SimLabView;
+
+namespace SimLabController;
 
 /// <summary>
 /// This is the Command Interpreter - the main processing class of the Controller.

@@ -1,7 +1,7 @@
+using SimLabView;
+
 namespace SimLabController;
 
-using SimLabStatus;
-using SimLabView;
 /// <summary>
 /// The top-level class of the Controller.
 /// It initializes the other application and Controller parts and executes the main application loop.
