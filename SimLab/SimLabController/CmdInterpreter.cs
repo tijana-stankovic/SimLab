@@ -1,5 +1,7 @@
+using SimLabAPI;
 using SimLabStatus;
 using SimLabView;
+using System.Reflection;
 
 namespace SimLabController;
 
@@ -40,6 +42,11 @@ public class CmdInterpreter() {
                 Exit();
                 break;
 
+            case "T":
+            case "TEST":
+                TestPlugIn();
+                break;
+
             default:
                 StatusCode = StatusCode.UnknownCommand;
                 View.PrintStatus(StatusCode);
@@ -75,5 +82,55 @@ public class CmdInterpreter() {
     /// </summary>
     private void Exit() {
         QuitSignal = true;
+    }
+
+    /// <summary>
+    /// TEST command entry point.
+    /// Tests the plug-in functionality.
+    /// </summary>
+    static private void TestPlugIn() {
+        View.Print("Hello from main program method TestPlugIn.");
+
+        // hard coded, for testing purposes
+        string dllName = "SimLabPlugIn.dll";
+        string className = "SimLabPlugIn.PlugIn";
+        string methodName = "Update";
+
+        MethodInfo? pluginMethod = null;
+
+        if (!File.Exists(dllName)) {
+            View.Print($"DLL file '{dllName}' not found.");
+            return;
+        }
+
+        try {
+            Assembly asm = Assembly.LoadFrom(dllName);
+            Type? type = asm.GetType(className);
+            if (type != null) {
+                pluginMethod = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+                if (pluginMethod == null) {
+                    View.Print($"Public static method '{methodName}' not found in DLL '{dllName}'.");
+                    return;
+                }
+            } else {
+                View.Print($"Class '{className}' not found in DLL '{dllName}'.");
+                return;
+            }
+        } catch (Exception ex) {
+            View.Print($"Error loading DLL: {ex.Message}");
+            return;
+        }
+
+        var api = new API();
+        api.Test("main program");
+        if (pluginMethod != null) {
+            try {
+                View.Print($"Calling plug-in method '{className}.{methodName}' from DLL '{dllName}'.");
+                pluginMethod.Invoke(null, new object?[] { api });
+                View.Print("Returned from plug-in method.");
+            } catch (Exception ex) {
+                View.Print($"Error calling plug-in method: {ex.Message}");
+            }
+        }
     }
 }

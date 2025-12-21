@@ -1,5 +1,5 @@
 ﻿namespace SimLabAPI;
 
 public interface ISimLabAPI {
-    void Test(string message);
+    void Test(string callOrigin);
 }
