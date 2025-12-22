@@ -1,4 +1,4 @@
-namespace SimLabController;
+namespace SimLab.Cmd;
 
 /// <summary>
 /// A class providing internal supporting structure for a user command.

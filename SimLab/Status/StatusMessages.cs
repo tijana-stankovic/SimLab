@@ -1,4 +1,4 @@
-namespace SimLabStatus;
+namespace SimLab.Status;
 
 /// <summary>
 /// Class for mapping status codes to their respective messages.

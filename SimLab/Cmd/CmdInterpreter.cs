@@ -1,9 +1,9 @@
-using SimLabAPI;
-using SimLabStatus;
-using SimLabView;
+using SimLab.ApiImplementation;
+using SimLab.Status;
+using SimLab.Output;
 using System.Reflection;
 
-namespace SimLabController;
+namespace SimLab.Cmd;
 
 /// <summary>
 /// This is the Command Interpreter - the main processing class of the Controller.

@@ -1,4 +1,4 @@
-namespace SimLabStatus;
+namespace SimLab.Status;
 
 /// <summary>
 /// Enum representing various status codes for the SimLab application.

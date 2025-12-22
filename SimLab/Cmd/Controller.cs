@@ -1,6 +1,6 @@
-using SimLabView;
+using SimLab.Output;
 
-namespace SimLabController;
+namespace SimLab.Cmd;
 
 /// <summary>
 /// The top-level class of the Controller.
@@ -26,7 +26,7 @@ public class Controller {
         bool quit = false;
         while (!quit) {
             View.PrintPrompt();
-            Command cmd = CLI.ReadCommand();
+            Command cmd = Cli.ReadCommand();
             Interpreter.ExecuteCommand(cmd);
             quit = Interpreter.QuitSignal;
         }

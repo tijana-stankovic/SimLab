@@ -1,6 +1,6 @@
-using SimLabStatus;
+using SimLab.Status;
 
-namespace SimLabView;
+namespace SimLab.Output;
 
 /// <summary>
 /// A class with methods for displaying various information to the user and performing log data operations.

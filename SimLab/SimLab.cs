@@ -1,4 +1,4 @@
-﻿using SimLabController;
+﻿using SimLab.Cmd;
 
 namespace SimLab;
 
