@@ -1,7 +1,7 @@
 using SimLab.ApiImplementation;
 using SimLab.Status;
 using SimLab.Output;
-using System.Reflection;
+using SimLab.PlugInUtility;
 
 namespace SimLab.Cmd;
 
@@ -89,48 +89,34 @@ public class CmdInterpreter() {
     /// Tests the plug-in functionality.
     /// </summary>
     static private void TestPlugIn() {
-        View.Print("Hello from main program method TestPlugIn.");
-
         // hard coded, for testing purposes
-        string dllName = "SimLabPlugIn.dll";
-        string className = "SimLabPlugIn.PlugIn";
-        string methodName = "Update";
+        string plugInMethodPath = "SimLabPlugIn.dll;SimLabPlugIn.PlugIn;Update";
+        if (PlugIn.ParseMethodPath(plugInMethodPath,
+            out string dllName, 
+            out string className, 
+            out string methodName, 
+            out string? error)) {
 
-        MethodInfo? pluginMethod = null;
+            var pluginMethod = PlugIn.GetMethod(dllName, className, methodName, out error);
 
-        if (!File.Exists(dllName)) {
-            View.Print($"DLL file '{dllName}' not found.");
-            return;
-        }
-
-        try {
-            Assembly asm = Assembly.LoadFrom(dllName);
-            Type? type = asm.GetType(className);
-            if (type != null) {
-                pluginMethod = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
-                if (pluginMethod == null) {
-                    View.Print($"Public static method '{methodName}' not found in DLL '{dllName}'.");
-                    return;
+            if (pluginMethod != null) {
+                View.Print("Hello from the main program method TestPlugIn.");
+                var api = new API();
+                api.Test("main program");
+                View.Print($"Calling plug-in method '{className}.{methodName}' from DLL '{dllName}'.");
+                if (PlugIn.Execute(pluginMethod, api, out error)) {
+                    View.Print("Returned from plug-in method.");
+                } else {
+                    View.Print($"Error calling plug-in method.");
+                    View.Print($"Error text:\n{error}");
                 }
             } else {
-                View.Print($"Class '{className}' not found in DLL '{dllName}'.");
-                return;
+                View.Print($"Error retrieving plug-in method: '{methodName}' from class '{className}' in DLL '{dllName}'.");
+                View.Print($"Error text:\n{error}");
             }
-        } catch (Exception ex) {
-            View.Print($"Error loading DLL: {ex.Message}");
-            return;
-        }
-
-        var api = new API();
-        api.Test("main program");
-        if (pluginMethod != null) {
-            try {
-                View.Print($"Calling plug-in method '{className}.{methodName}' from DLL '{dllName}'.");
-                pluginMethod.Invoke(null, new object?[] { api });
-                View.Print("Returned from plug-in method.");
-            } catch (Exception ex) {
-                View.Print($"Error calling plug-in method: {ex.Message}");
-            }
+        } else {
+            View.Print($"Error parsing plug-in method path: '{plugInMethodPath}'");
+            View.Print($"Error text:\n{error}");
         }
     }
 }
