@@ -6,13 +6,12 @@ namespace SimLab.Cmd;
 /// The top-level class of the Controller.
 /// It initializes the other application and Controller parts and executes the main application loop.
 /// </summary>
-public class Controller {
+internal class Controller {
     private CmdInterpreter Interpreter { get; set; }
 
     public Controller(string[] args) {
         View.FullProgramInfo();
-
-        Interpreter = new CmdInterpreter();
+        Interpreter = new CmdInterpreter(args);
     }
 
     /// <summary>

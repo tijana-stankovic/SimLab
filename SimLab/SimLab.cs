@@ -6,7 +6,7 @@ namespace SimLab;
 /// Represents the SimLab application entry point.
 /// This class provides the Main() method, which is the starting point of the application.
 /// </summary>
-public class SimLab {
+internal class SimLab {
 
     /// <summary>
     /// The starting point of the application.

@@ -3,7 +3,7 @@ namespace SimLab.Status;
 /// <summary>
 /// Enum representing various status codes for the SimLab application.
 /// </summary>
-public enum StatusCode {
+internal enum StatusCode {
     /// <summary>
     /// No error.
     /// </summary>

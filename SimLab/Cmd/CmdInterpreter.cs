@@ -1,7 +1,10 @@
 using SimLab.ApiImplementation;
+using SimLab.Configuration;
+using SimLab.Simulator;
 using SimLab.Status;
 using SimLab.Output;
 using SimLab.PlugInUtility;
+using System.Reflection;
 
 namespace SimLab.Cmd;
 
@@ -9,9 +12,17 @@ namespace SimLab.Cmd;
 /// This is the Command Interpreter - the main processing class of the Controller.
 /// It executes all commands of the SimLab application and is responsible for communication with other parts.
 /// </summary>
-public class CmdInterpreter() {
+internal class CmdInterpreter {
     public StatusCode StatusCode { get; set; } = StatusCode.NoError;
     public bool QuitSignal { get; set; } = false;
+
+    public Simulation Simulation { get; set; } = new Simulation();
+
+    public CmdInterpreter(string[] args) {
+        if (args.Length != 0) {
+            LoadConfigurationFile(args[0]);
+        }
+    }
 
     /// <summary>
     /// Entry point for command processing. Executes the specified command.
@@ -91,6 +102,7 @@ public class CmdInterpreter() {
     static private void TestPlugIn() {
         // hard coded, for testing purposes
         string plugInMethodPath = "SimLabPlugIn.dll;SimLabPlugIn.PlugIn;Update";
+
         if (PlugIn.ParseMethodPath(plugInMethodPath,
             out string dllName, 
             out string className, 
@@ -117,6 +129,51 @@ public class CmdInterpreter() {
         } else {
             View.Print($"Error parsing plug-in method path: '{plugInMethodPath}'");
             View.Print($"Error text:\n{error}");
+        }
+    }
+
+    static private MethodInfo? GetMethod(string plugInMethodPath) {
+        MethodInfo? pluginMethod = null;
+
+        if (PlugIn.ParseMethodPath(plugInMethodPath,
+            out string dllName, 
+            out string className, 
+            out string methodName, 
+            out string? error)) {
+
+            pluginMethod = PlugIn.GetMethod(dllName, className, methodName, out error);
+
+            if (pluginMethod == null) {
+                View.Print($"Error retrieving plug-in method: '{methodName}' from class '{className}' in DLL '{dllName}'.");
+                View.Print($"Error text:\n{error}");
+            }
+        } else {
+            View.Print($"Error parsing plug-in method path: '{plugInMethodPath}'");
+            View.Print($"Error text:\n{error}");
+        }
+        
+        return pluginMethod;
+    }
+
+    private void LoadConfigurationFile(string fileName) {
+        Console.WriteLine("[Info] Loading configuration from JSON file: " + fileName);
+        if (Json.LoadConfiguration(fileName, out WorldCfg? WorldCfg)) {
+            Simulation.WorldConfiguration = WorldCfg;
+            if (WorldCfg != null) {
+                Console.WriteLine("[Info] Configuration successfully loaded from JSON file.");
+                if (WorldCfg.Initialization != null)
+                    Simulation.InitializationMethod = GetMethod(WorldCfg.Initialization.Method);
+                if (WorldCfg.Update != null)
+                    Simulation.UpdateMethod = GetMethod(WorldCfg.Update.Method);
+                if (WorldCfg.Evaluation != null)
+                    Simulation.EvaluationMethod = GetMethod(WorldCfg.Evaluation.Method);
+                if (WorldCfg.Reproduction != null)
+                    Simulation.ReproductionMethod = GetMethod(WorldCfg.Reproduction.Method);
+                if (WorldCfg.Selection != null)
+                    Simulation.SelectionMethod = GetMethod(WorldCfg.Selection.Method);
+            }
+        } else {
+            Console.WriteLine("[Warning] No valid configuration loaded from JSON file. Running without simulation world.");
         }
     }
 }

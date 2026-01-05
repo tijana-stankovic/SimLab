@@ -5,7 +5,7 @@ namespace SimLab.Output;
 /// <summary>
 /// A class with methods for displaying various information to the user and performing log data operations.
 /// </summary>
-public class View {
+internal class View {
     public static string FullLine { get; } = "--------------------------------------------------------------------------------";
     public static string FullDoubleLine { get; } = "================================================================================";
 

@@ -5,7 +5,7 @@ namespace SimLab.Cmd;
 /// <summary>
 /// Command Line Interface (CLI) class with methods for handling user input.
 /// </summary>
-public class Cli {
+internal class Cli {
     /// <summary>
     /// Reads a command from the user input.
     /// Parses the input line into a command and its arguments.

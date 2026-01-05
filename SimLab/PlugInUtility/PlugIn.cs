@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace SimLab.PlugInUtility;
 
-public class PlugIn {
+internal class PlugIn {
     /// <summary>
     /// Parses a plugInMethodPath in the format:
     ///   "<dll-filename>;<namespace-name>.<class-name>;<method-name>"

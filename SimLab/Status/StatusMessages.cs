@@ -3,7 +3,7 @@ namespace SimLab.Status;
 /// <summary>
 /// Class for mapping status codes to their respective messages.
 /// </summary>
-public class StatusMessages {
+internal class StatusMessages {
     // Initializes the status messages for each status code.
     private static readonly Dictionary<StatusCode, string> statusMessages = new() {
         { StatusCode.NoError, "No error." },
