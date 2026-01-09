@@ -16,7 +16,7 @@ internal class CmdInterpreter {
     public StatusCode StatusCode { get; set; } = StatusCode.NoError;
     public bool QuitSignal { get; set; } = false;
 
-    public Simulation Simulation { get; set; } = new Simulation();
+    public Simulation? Simulation { get; set; } = null;
 
     public CmdInterpreter(string[] args) {
         if (args.Length != 0) {
@@ -158,8 +158,8 @@ internal class CmdInterpreter {
     private void LoadConfigurationFile(string fileName) {
         Console.WriteLine("[Info] Loading configuration from JSON file: " + fileName);
         if (Json.LoadConfiguration(fileName, out WorldCfg? WorldCfg)) {
-            Simulation.WorldConfiguration = WorldCfg;
             if (WorldCfg != null) {
+                Simulation = new Simulation(new World(WorldCfg));
                 Console.WriteLine("[Info] Configuration successfully loaded from JSON file.");
                 if (WorldCfg.Initialization != null)
                     Simulation.InitializationMethod = GetMethod(WorldCfg.Initialization.Method);
