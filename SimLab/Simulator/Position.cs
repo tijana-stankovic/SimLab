@@ -1,16 +1,21 @@
+using SimLabApi;
+
 namespace SimLab.Simulator;
 
-internal readonly struct Position(int x, int y, int z = 0) : IEquatable<Position> {
+internal class Position(int x, int y, int z = 0) : IPosition, IEquatable<Position> {
     public int X { get; } = x;
     public int Y { get; } = y;
     public int Z { get; } = z;
 
-    public bool Equals(Position other) {
+    // IEquatable + hash allow using Position object as a key in Dictionary Simulation._cells
+    public bool Equals(Position? other) {
+        if (other is null) 
+            return false;
         return X == other.X && Y == other.Y && Z == other.Z;
     }
 
     public override bool Equals(object? obj) {
-        return obj is Position p && Equals(p);
+        return obj is Position pos && Equals(pos);
     }
 
     public override int GetHashCode() {

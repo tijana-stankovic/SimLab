@@ -5,11 +5,9 @@ internal class Characteristics {
 
     public static int Count { get; set; } = 0;
 
-    public static void Init(string listOfCharacteristics){
-        IEnumerable<string> names = listOfCharacteristics.Split(',').Select(s => s.Trim());
-
+    public static void Init(string[] listOfCharacteristics){
         int i = 0;
-        foreach (var name in names) {
+        foreach (var name in listOfCharacteristics) {
             _indexByName[name.Trim()] = i++;
         }
 

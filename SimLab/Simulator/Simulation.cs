@@ -5,7 +5,7 @@ namespace SimLab.Simulator;
 internal class Simulation(World world) {
     public World World { get; } = world;
     private readonly Dictionary<Position, Cell> _cells = [];
-    public long Cycle { get; private set; } = 0;
+    public long Cycle { get; set; } = 0;
 
     public MethodInfo? InitializationMethod { get; set; }
     public MethodInfo? UpdateMethod { get; set; }

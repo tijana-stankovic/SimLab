@@ -53,6 +53,11 @@ internal class CmdInterpreter {
                 Exit();
                 break;
 
+            case "TS":
+            case "TESTSIM":
+                TestSim(3);
+                break;
+
             case "T":
             case "TEST":
                 TestPlugIn();
@@ -99,9 +104,9 @@ internal class CmdInterpreter {
     /// TEST command entry point.
     /// Tests the plug-in functionality.
     /// </summary>
-    static private void TestPlugIn() {
+    private void TestPlugIn() {
         // hard coded, for testing purposes
-        string plugInMethodPath = "SimLabPlugIn.dll;SimLabPlugIn.PlugIn;Update";
+        string plugInMethodPath = "SimLabPlugIn.dll;SimLabPlugIn.PlugIn;Test";
 
         if (PlugIn.ParseMethodPath(plugInMethodPath,
             out string dllName, 
@@ -113,7 +118,7 @@ internal class CmdInterpreter {
 
             if (pluginMethod != null) {
                 View.Print("Hello from the main program method TestPlugIn.");
-                var api = new API();
+                var api = new API(Simulation);
                 api.Test("main program");
                 View.Print($"Calling plug-in method '{className}.{methodName}' from DLL '{dllName}'.");
                 if (PlugIn.Execute(pluginMethod, api, out error)) {
@@ -156,11 +161,12 @@ internal class CmdInterpreter {
     }
 
     private void LoadConfigurationFile(string fileName) {
-        Console.WriteLine("[Info] Loading configuration from JSON file: " + fileName);
+        View.Print("[Info] Loading configuration from JSON file: " + fileName);
         if (Json.LoadConfiguration(fileName, out WorldCfg? WorldCfg)) {
             if (WorldCfg != null) {
+                Characteristics.Init(WorldCfg.Characteristics);
                 Simulation = new Simulation(new World(WorldCfg));
-                Console.WriteLine("[Info] Configuration successfully loaded from JSON file.");
+                View.Print("[Info] Configuration successfully loaded from JSON file.");
                 if (WorldCfg.Initialization != null)
                     Simulation.InitializationMethod = GetMethod(WorldCfg.Initialization.Method);
                 if (WorldCfg.Update != null)
@@ -173,7 +179,44 @@ internal class CmdInterpreter {
                     Simulation.SelectionMethod = GetMethod(WorldCfg.Selection.Method);
             }
         } else {
-            Console.WriteLine("[Warning] No valid configuration loaded from JSON file. Running without simulation world.");
+            View.Print("[Warning] No valid configuration loaded from JSON file. Running without simulation world.");
+        }
+    }
+
+    private void TestSim(int numberOfCycles) {
+        if (Simulation == null) {
+            View.Print("No simulation created from configuration file. Cannot run TestSim.");
+            return;
+        }
+        Simulation sim = Simulation;
+        var api = new API(sim);
+
+        // Initialization
+        if (sim.InitializationMethod != null) {
+            if (PlugIn.Execute(sim.InitializationMethod, api, out var error))
+                View.Print("[TestSim] Initialization completed successfully.");
+            else
+                View.Print($"[TestSim] Initialization error: {error}");
+        }
+
+        // Main simulation loop
+        for (int i = 0; i < numberOfCycles; i++) {
+            sim.Cycle++;
+            View.Print($"\n[TestSim] Starting cycle {sim.Cycle}.");
+
+            void ExecuteIfNotNull(MethodInfo? method) {
+                if (method != null) {
+                    if (PlugIn.Execute(method, api, out var error)) 
+                        View.Print($"    Method {method.Name} executed successfully.");
+                    else 
+                        View.Print($"    Error executing method {method.Name}: {error}");
+                }
+            }
+
+            ExecuteIfNotNull(sim.UpdateMethod);
+            ExecuteIfNotNull(sim.EvaluationMethod);
+            ExecuteIfNotNull(sim.ReproductionMethod);
+            ExecuteIfNotNull(sim.SelectionMethod);
         }
     }
 }

@@ -1,6 +1,8 @@
+using SimLabApi;
+
 namespace SimLab.Simulator;
 
-internal class Cell {
+internal class Cell : ICell{
     private readonly float[] _characteristicValues;
     public int[] Color { get; set; } = [0, 0, 0]; // RGB
 
@@ -12,8 +14,7 @@ internal class Cell {
     // creating a copy of a cell: 
     // Cell copy = new Cell(originalCell);
     public Cell(Cell other) {
-        _characteristicValues = new float[other._characteristicValues.Length];
-        Array.Copy(other._characteristicValues, _characteristicValues, _characteristicValues.Length);
+        _characteristicValues = (float[])other._characteristicValues.Clone();
         Color = (int[])other.Color.Clone();
     }
 
