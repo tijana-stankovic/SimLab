@@ -55,7 +55,13 @@ internal class CmdInterpreter {
 
             case "TS":
             case "TESTSIM":
-                TestSim(3);
+                if (cmd.Args.Length != 1) {
+                    View.Print("Invalid number of arguments for TESTSIM command.");
+                    View.Print("To specify the number of cycles, use: TESTSIM <number-of-cycles>");
+                    break;
+                } else if (int.TryParse(cmd.Args[0], out int numberOfCycles)) {
+                    TestSim(numberOfCycles);
+                }
                 break;
 
             case "T":
@@ -192,12 +198,18 @@ internal class CmdInterpreter {
         var api = new API(sim);
 
         // Initialization
-        if (sim.InitializationMethod != null) {
-            if (PlugIn.Execute(sim.InitializationMethod, api, out var error))
-                View.Print("[TestSim] Initialization completed successfully.");
-            else
-                View.Print($"[TestSim] Initialization error: {error}");
+        if (!sim.GetAllCells().Any()) { // if there are no cells in the world, run initialization method (if it exists)
+            if (sim.InitializationMethod != null) {
+                if (PlugIn.Execute(sim.InitializationMethod, api, out var error))
+                    View.Print("[TestSim] Initialization completed successfully.");
+                else
+                    View.Print($"[TestSim] Initialization error: {error}");
+            }
+            PrintCellAges(sim, "Initial age state of all cells:");
+        } else {
+            PrintCellAges(sim, "Current age state of all cells:");
         }
+
 
         // Main simulation loop
         for (int i = 0; i < numberOfCycles; i++) {
@@ -217,6 +229,16 @@ internal class CmdInterpreter {
             ExecuteIfNotNull(sim.EvaluationMethod);
             ExecuteIfNotNull(sim.ReproductionMethod);
             ExecuteIfNotNull(sim.SelectionMethod);
+
+            PrintCellAges(sim, "Age state of all cells after cycle " + sim.Cycle + ":");
+        }
+    }
+
+    // go through all cells and print their age (just for testing purposes)
+    static private void PrintCellAges(Simulation sim, string header) {
+        View.Print($"\n[TestSim] {header}");
+        foreach (var cellHandle in sim.GetAllCells()) {
+            View.Print($"    Cell at position {cellHandle.Position} has age {cellHandle.Cell["age"]}");
         }
     }
 }
