@@ -173,16 +173,26 @@ internal class CmdInterpreter {
                 Characteristics.Init(WorldCfg.Characteristics);
                 Simulation = new Simulation(new World(WorldCfg));
                 View.Print("[Info] Configuration successfully loaded from JSON file.");
-                if (WorldCfg.Initialization != null)
+                if (WorldCfg.Initialization != null) {
                     Simulation.InitializationMethod = GetMethod(WorldCfg.Initialization.Method);
-                if (WorldCfg.Update != null)
+                    Simulation.InitializationParameters = WorldCfg.Initialization.Parameters;
+                }
+                if (WorldCfg.Update != null) {
                     Simulation.UpdateMethod = GetMethod(WorldCfg.Update.Method);
-                if (WorldCfg.Evaluation != null)
+                    Simulation.UpdateParameters = WorldCfg.Update.Parameters;
+                }
+                if (WorldCfg.Evaluation != null) {
                     Simulation.EvaluationMethod = GetMethod(WorldCfg.Evaluation.Method);
-                if (WorldCfg.Reproduction != null)
+                    Simulation.EvaluationParameters = WorldCfg.Evaluation.Parameters;
+                }
+                if (WorldCfg.Reproduction != null) {
                     Simulation.ReproductionMethod = GetMethod(WorldCfg.Reproduction.Method);
-                if (WorldCfg.Selection != null)
+                    Simulation.ReproductionParameters = WorldCfg.Reproduction.Parameters;
+                }
+                if (WorldCfg.Selection != null) {
                     Simulation.SelectionMethod = GetMethod(WorldCfg.Selection.Method);
+                    Simulation.SelectionParameters = WorldCfg.Selection.Parameters;
+                }
             }
         } else {
             View.Print("[Warning] No valid configuration loaded from JSON file. Running without simulation world.");
@@ -194,20 +204,26 @@ internal class CmdInterpreter {
             View.Print("No simulation created from configuration file. Cannot run TestSim.");
             return;
         }
+
+        View.Print(""); View.Print(""); View.Print("");
+
         Simulation sim = Simulation;
         var api = new API(sim);
 
         // Initialization
-        if (!sim.GetAllCells().Any()) { // if there are no cells in the world, run initialization method (if it exists)
+        if (!sim.IsRunning) { 
+            sim.IsRunning = true;
+            
             if (sim.InitializationMethod != null) {
+                View.Print("[TestSim] Calling plug-in initialization method.");
                 if (PlugIn.Execute(sim.InitializationMethod, api, out var error))
                     View.Print("[TestSim] Initialization completed successfully.");
                 else
                     View.Print($"[TestSim] Initialization error: {error}");
             }
-            PrintCellAges(sim, "Initial age state of all cells:");
+            PrintCellCharacteristics(sim, "Initial characteristics of all cells:");
         } else {
-            PrintCellAges(sim, "Current age state of all cells:");
+            PrintCellCharacteristics(sim, "Current characteristics of all cells:");
         }
 
 
@@ -219,9 +235,9 @@ internal class CmdInterpreter {
             void ExecuteIfNotNull(MethodInfo? method) {
                 if (method != null) {
                     if (PlugIn.Execute(method, api, out var error)) 
-                        View.Print($"    Method {method.Name} executed successfully.");
+                        View.Print($"    [TestSim] Plug-in method {method.Name} executed successfully.");
                     else 
-                        View.Print($"    Error executing method {method.Name}: {error}");
+                        View.Print($"    [TestSim] Error executing plug-in method {method.Name}: {error}");
                 }
             }
 
@@ -230,15 +246,23 @@ internal class CmdInterpreter {
             ExecuteIfNotNull(sim.ReproductionMethod);
             ExecuteIfNotNull(sim.SelectionMethod);
 
-            PrintCellAges(sim, "Age state of all cells after cycle " + sim.Cycle + ":");
+            PrintCellCharacteristics(sim, "Characteristics of all cells after cycle " + sim.Cycle + ":");
         }
+
+        View.Print(""); View.Print(""); View.Print("");
     }
 
-    // go through all cells and print their age (just for testing purposes)
-    static private void PrintCellAges(Simulation sim, string header) {
+    // go through all cells and print their characteristics
+    static private void PrintCellCharacteristics(Simulation sim, string header) {
         View.Print($"\n[TestSim] {header}");
         foreach (var cellHandle in sim.GetAllCells()) {
-            View.Print($"    Cell at position {cellHandle.Position} has age {cellHandle.Cell["age"]}");
+            View.Print($"    @ {cellHandle.Position, -15}", false);
+            // print all cell characteristics
+            foreach (var characteristic in Characteristics.GetNames().Select(name => (Name: name, Value: cellHandle.Cell[name]))) {
+                View.Print($"{characteristic.Name}: {characteristic.Value, -6}", false);
+            }
+            View.Print("");
         }
     }
 }
+ 

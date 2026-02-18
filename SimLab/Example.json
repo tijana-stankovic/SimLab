@@ -4,8 +4,7 @@
     "dimensions": [100, "200"],
     "characteristics": ["type", "age", "status"],
     "initialization": {
-        "method": "SimLabPlugIn.dll;SimLabPlugIn.PlugIn;Initialization",
-        "parameters": ["param1", "param2"]
+        "method": "SimLabPlugIn.dll;SimLabPlugIn.PlugIn;Initialization"
     },
     "update": {
         "method": "SimLabPlugIn.dll;SimLabPlugIn.PlugIn;Update"

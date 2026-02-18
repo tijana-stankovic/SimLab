@@ -3,15 +3,23 @@ using System.Reflection;
 namespace SimLab.Simulator;
 
 internal class Simulation(World world) {
+    public bool IsRunning { get; set; } = false;
+    
     public World World { get; } = world;
     private readonly Dictionary<Position, Cell> _cells = [];
     public long Cycle { get; set; } = 0;
 
     public MethodInfo? InitializationMethod { get; set; }
+    public string[] InitializationParameters { get; set; } = [];
     public MethodInfo? UpdateMethod { get; set; }
+    public string[] UpdateParameters { get; set; } = [];
+
     public MethodInfo? EvaluationMethod { get; set; }
+    public string[] EvaluationParameters { get; set; } = [];
     public MethodInfo? ReproductionMethod { get; set; }
+    public string[] ReproductionParameters { get; set; } = [];
     public MethodInfo? SelectionMethod { get; set; }
+    public string[] SelectionParameters { get; set; } = [];
 
     public bool TryGetCell(Position pos, out CellHandle? handle) {
         if (_cells.TryGetValue(pos, out var cell)) {

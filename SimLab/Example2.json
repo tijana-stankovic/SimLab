@@ -1,0 +1,22 @@
+{   
+    "name": "ExampleWorld",
+    "space": 2,
+    "dimensions": [100, "200"],
+    "characteristics": ["age", "size"],
+    "initialization": {
+        "method": "SimLabPlugIn2.dll;SimLabPlugIn2.PlugIn2;Initialization",
+        "parameters": ["testsim_init.txt"] // A text file with initial cell configurations (position and characteristic values)
+    },
+    "update": {
+        "method": "SimLabPlugIn2.dll;SimLabPlugIn2.PlugIn2;Update",
+        "parameters": ["1", "10"] // A cell's age increases by 1 and size increases by 10 in each simulation cycle
+    },
+    "reproduction": {
+        "method": "SimLabPlugIn2.dll;SimLabPlugIn2.PlugIn2;Reproduction",
+        "parameters": ["100"] // A cell whose size is greater than this value splits into 2 cells
+    },
+    "selection": {
+        "method": "SimLabPlugIn2.dll;SimLabPlugIn2.PlugIn2;Selection",
+        "parameters": ["30"] // A cell whose age is greater than this value dies
+    }
+}

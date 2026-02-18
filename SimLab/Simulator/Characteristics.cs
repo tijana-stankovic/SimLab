@@ -21,4 +21,9 @@ internal class Characteristics {
     public static bool TryGetIndex(string name, out int index) {
         return _indexByName.TryGetValue(name, out index);
     }
+
+    // returns the list of characteristic names in the order of their indices
+    public static IEnumerable<string> GetNames() {
+        return _indexByName.OrderBy(pair => pair.Value).Select(pair => pair.Key);
+    }
 }
