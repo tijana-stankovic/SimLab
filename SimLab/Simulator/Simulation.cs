@@ -2,12 +2,26 @@ using System.Reflection;
 
 namespace SimLab.Simulator;
 
-internal class Simulation(World world) {
+internal class Simulation {
     public bool IsRunning { get; set; } = false;
-    
-    public World World { get; } = world;
-    private readonly Dictionary<Position, Cell> _cells = [];
-    public long Cycle { get; set; } = 0;
+
+    public World World { get; }
+    private readonly Dictionary<Position, Cell> _cellsCurrent = [];
+    private readonly Dictionary<Position, Cell> _cellsNext = [];
+    private long _cycle = 0;
+
+    public Simulation(World world) {
+        World = world;
+        Cell.ActiveWriteCycle = _cycle;
+    }
+
+    public long Cycle {
+        get => _cycle;
+        set {
+            _cycle = value;
+            Cell.ActiveWriteCycle = value;
+        }
+    }
 
     public MethodInfo? InitializationMethod { get; set; }
     public string[] InitializationParameters { get; set; } = [];
@@ -22,7 +36,7 @@ internal class Simulation(World world) {
     public string[] SelectionParameters { get; set; } = [];
 
     public bool TryGetCell(Position pos, out CellHandle? handle) {
-        if (_cells.TryGetValue(pos, out var cell)) {
+        if (_cellsCurrent.TryGetValue(pos, out var cell)) {
             handle = new CellHandle(pos, cell);
             return true;
         }
@@ -32,32 +46,32 @@ internal class Simulation(World world) {
     }
 
     public CellHandle? AddCell(Position pos, Cell cell) {
-        if (_cells.ContainsKey(pos))
+        if (_cellsCurrent.ContainsKey(pos))
             return null; // cell already exists at this position
 
-        _cells[pos] = cell;
+        _cellsCurrent[pos] = cell;
         return new CellHandle(pos, cell);
     }
 
     public bool RemoveCell(Position pos) {
-        return _cells.Remove(pos);
+        return _cellsCurrent.Remove(pos);
     }
 
     public bool MoveCell(Position from, Position to)
     {
-        if (!_cells.TryGetValue(from, out var cell))
+        if (!_cellsCurrent.TryGetValue(from, out var cell))
             return false;
 
-        if (_cells.ContainsKey(to))
+        if (_cellsCurrent.ContainsKey(to))
             return false; // destination is occupied
 
-        _cells.Remove(from);
-        _cells[to] = cell;
+        _cellsCurrent.Remove(from);
+        _cellsCurrent[to] = cell;
 
         return true;
     }
 
     public IEnumerable<CellHandle> GetAllCells() {
-        return _cells.Select(pair => new CellHandle(pair.Key, pair.Value));
+        return _cellsCurrent.Select(pair => new CellHandle(pair.Key, pair.Value));
     }
 }
