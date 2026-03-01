@@ -7,6 +7,7 @@ public interface ISimLabApi {
 
     // return all cells in the world as a list of ICellHandle
     IEnumerable<ICellHandle> GetAllCells();
+    ICellHandle? GetCurrentCell();
 
     // cell management methods
     ICellHandle? AddCell(int x, int y, int z = 0);

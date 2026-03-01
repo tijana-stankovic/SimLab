@@ -22,6 +22,12 @@ internal class API(Simulation? sim) : ISimLabApi {
         return _sim.GetAllCells();
     }
 
+    public ICellHandle? GetCurrentCell() {
+        if (_sim == null)
+            return null;
+        return _sim.GetCurrentCell();
+    }
+
     public ICellHandle? AddCell(int x, int y, int z = 0) {
         var pos = new Position(x, y, z);
         var cell = new Cell();

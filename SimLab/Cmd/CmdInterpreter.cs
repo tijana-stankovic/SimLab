@@ -235,6 +235,7 @@ internal class CmdInterpreter {
         // Initialization
         if (!sim.IsRunning) { 
             sim.IsRunning = true;
+            sim.BeginCycle();
             
             if (sim.InitializationMethod != null) {
                 View.Print("[TestSim] Calling plug-in initialization method.");
@@ -243,6 +244,7 @@ internal class CmdInterpreter {
                 else
                     View.Print($"[TestSim] Initialization error: {error}");
             }
+            sim.EndCycle();
             PrintCellCharacteristics(sim, "Initial characteristics of all cells:");
         } else {
             PrintCellCharacteristics(sim, "Current characteristics of all cells:");
@@ -253,6 +255,7 @@ internal class CmdInterpreter {
         for (int i = 0; i < numberOfCycles; i++) {
             sim.Cycle++;
             View.Print($"\n[TestSim] Starting cycle {sim.Cycle}.");
+            sim.BeginCycle();
 
             void ExecuteIfNotNull(MethodInfo? method) {
                 if (method != null) {
@@ -263,10 +266,37 @@ internal class CmdInterpreter {
                 }
             }
 
-            ExecuteIfNotNull(sim.UpdateMethod);
+            void ExecuteUpdatePerCellIfNotNull(MethodInfo? method) {
+                if (method == null) {
+                    return;
+                }
+
+                IEnumerable<CellHandle> cellHandles = sim.Mode == SimulationMode.SynchronousCA
+                    ? sim.GetAllCells()
+                    : sim.GetAllCells().ToList();
+
+                foreach (var cellHandle in cellHandles) {
+                    if (sim.Mode == SimulationMode.SynchronousCA) {
+                        sim.SetCurrentCell(cellHandle.Position);
+                    } else {
+                        sim.SetCurrentCell(cellHandle);
+                    }
+
+                    if (sim.GetCurrentCell() == null) {
+                        continue;
+                    }
+
+                    ExecuteIfNotNull(method);
+                }
+
+                sim.ClearCurrentCell();
+            }
+
+            ExecuteUpdatePerCellIfNotNull(sim.UpdateMethod);
             ExecuteIfNotNull(sim.EvaluationMethod);
             ExecuteIfNotNull(sim.ReproductionMethod);
             ExecuteIfNotNull(sim.SelectionMethod);
+            sim.EndCycle();
 
             PrintCellCharacteristics(sim, "Characteristics of all cells after cycle " + sim.Cycle + ":");
         }

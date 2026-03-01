@@ -7,9 +7,13 @@ internal class Simulation {
 
     private SimulationMode _mode = SimulationMode.SynchronousCA;
     public World World { get; }
-    private readonly Dictionary<Position, Cell> _cellsCurrent = [];
-    private readonly Dictionary<Position, Cell> _cellsNext = [];
+    private Dictionary<Position, Cell> _cellsCurrent = [];
+    private Dictionary<Position, Cell> _cellsNext = [];
     private long _cycle = 0;
+    private CellHandle? _currentCell;
+
+    private Dictionary<Position, Cell> ReadBuffer => _cellsCurrent;
+    private Dictionary<Position, Cell> WriteBuffer => Mode == SimulationMode.Asynchronous ? _cellsCurrent : _cellsNext;
 
     public Simulation(World world) {
         World = world;
@@ -22,6 +26,7 @@ internal class Simulation {
         set {
             _mode = value;
             Cell.SkipWriteAccessCheck = (_mode == SimulationMode.Asynchronous);
+            ClearCurrentCell();
         }
     }
 
@@ -45,8 +50,50 @@ internal class Simulation {
     public MethodInfo? SelectionMethod { get; set; }
     public string[] SelectionParameters { get; set; } = [];
 
+    public void BeginCycle() {
+        ClearCurrentCell();
+
+        if (Mode == SimulationMode.SynchronousCA) {
+            _cellsNext.Clear();
+            foreach (var pair in _cellsCurrent) {
+                _cellsNext[pair.Key] = pair.Value.Clone();
+            }
+        }
+    }
+
+    public void EndCycle() {
+        ClearCurrentCell();
+
+        if (Mode == SimulationMode.SynchronousCA) {
+            (_cellsCurrent, _cellsNext) = (_cellsNext, _cellsCurrent);
+        }
+    }
+
+    public bool SetCurrentCell(Position pos) {
+        if (WriteBuffer.TryGetValue(pos, out var cell)) {
+            _currentCell = new CellHandle(pos, cell);
+            return true;
+        }
+
+        ClearCurrentCell();
+        return false;
+    }
+
+    public bool SetCurrentCell(CellHandle cellHandle) {
+        _currentCell = cellHandle;
+        return true;
+    }
+
+    public CellHandle? GetCurrentCell() {
+        return _currentCell;
+    }
+
+    public void ClearCurrentCell() {
+        _currentCell = null;
+    }
+
     public bool TryGetCell(Position pos, out CellHandle? handle) {
-        if (_cellsCurrent.TryGetValue(pos, out var cell)) {
+        if (ReadBuffer.TryGetValue(pos, out var cell)) {
             handle = new CellHandle(pos, cell);
             return true;
         }
@@ -56,32 +103,32 @@ internal class Simulation {
     }
 
     public CellHandle? AddCell(Position pos, Cell cell) {
-        if (_cellsCurrent.ContainsKey(pos))
+        if (WriteBuffer.ContainsKey(pos))
             return null; // cell already exists at this position
 
-        _cellsCurrent[pos] = cell;
+        WriteBuffer[pos] = cell;
         return new CellHandle(pos, cell);
     }
 
     public bool RemoveCell(Position pos) {
-        return _cellsCurrent.Remove(pos);
+        return WriteBuffer.Remove(pos);
     }
 
     public bool MoveCell(Position from, Position to)
     {
-        if (!_cellsCurrent.TryGetValue(from, out var cell))
+        if (!WriteBuffer.TryGetValue(from, out var cell))
             return false;
 
-        if (_cellsCurrent.ContainsKey(to))
+        if (WriteBuffer.ContainsKey(to))
             return false; // destination is occupied
 
-        _cellsCurrent.Remove(from);
-        _cellsCurrent[to] = cell;
+        WriteBuffer.Remove(from);
+        WriteBuffer[to] = cell;
 
         return true;
     }
 
     public IEnumerable<CellHandle> GetAllCells() {
-        return _cellsCurrent.Select(pair => new CellHandle(pair.Key, pair.Value));
+        return ReadBuffer.Select(pair => new CellHandle(pair.Key, pair.Value));
     }
 }
