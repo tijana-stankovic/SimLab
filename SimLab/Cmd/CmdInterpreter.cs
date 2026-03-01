@@ -309,6 +309,7 @@ internal class CmdInterpreter {
         View.Print($"\n[TestSim] {header}");
         foreach (var cellHandle in sim.GetAllCells()) {
             View.Print($"    @ {cellHandle.Position, -15}", false);
+            View.Print($"id: {cellHandle.Cell["_id"], -10}", false);
             // print all cell characteristics
             foreach (var characteristic in Characteristics.GetNames().Select(name => (Name: name, Value: cellHandle.Cell[name]))) {
                 View.Print($"{characteristic.Name}: {characteristic.Value, -6}", false);

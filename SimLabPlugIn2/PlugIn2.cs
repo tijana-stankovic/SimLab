@@ -49,7 +49,7 @@ public class PlugIn2 {
                 newCellHandle.Cell["age"] = age;
                 newCellHandle.Cell["size"] = size;
                 Console.Write($"    [Plug-in] New cell added at {newCellHandle.Position, -15} with ");
-                Console.WriteLine($"age={newCellHandle.Cell["age"]}, size={newCellHandle.Cell["size"]}");
+                Console.WriteLine($"id={newCellHandle.Cell["_id"]}, age={newCellHandle.Cell["age"]}, size={newCellHandle.Cell["size"]}");
             }
         }
     }

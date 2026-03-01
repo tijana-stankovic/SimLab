@@ -8,6 +8,7 @@ internal class Cell : ICell{
 
     private readonly float[] _characteristicValues;
     private CellColor _color = new(0, 0, 0); // RGB
+    private float Id { get; set; } = -1;
 
     private long WritableInCycle { get; set; }
 
@@ -30,6 +31,7 @@ internal class Cell : ICell{
     public Cell(Cell other) {
         _characteristicValues = (float[])other._characteristicValues.Clone();
         _color = other._color;
+        Id = other.Id;
         WritableInCycle = ActiveWriteCycle;
     }
 
@@ -50,9 +52,21 @@ internal class Cell : ICell{
 
     // access by name
     public float this[string name] {
-        get => _characteristicValues[Characteristics.GetIndex(name)];
+        get {
+            if (IsSystemPropertyName(name)) {
+                return GetSystemPropertyValue(name);
+            }
+
+            return _characteristicValues[Characteristics.GetIndex(name)];
+        }
         set {
             WriteAccessCheck();
+
+            if (IsSystemPropertyName(name)) {
+                SetSystemPropertyValue(name, value);
+                return;
+            }
+
             _characteristicValues[Characteristics.GetIndex(name)] = value;
         }
     }
@@ -83,6 +97,37 @@ internal class Cell : ICell{
 
         if (WritableInCycle != ActiveWriteCycle) {
             throw new InvalidOperationException("Cannot modify a read-only cell.");
+        }
+    }
+
+    internal void SetId(float id) {
+        Id = id;
+    }
+
+    private static bool IsSystemPropertyName(string name) {
+        return name.StartsWith('_');
+    }
+
+    private float GetSystemPropertyValue(string name) {
+        float value;
+
+        switch (name.ToLowerInvariant()) {
+            case "_id":
+                value = Id;
+                break;
+            default:
+                throw new ArgumentException($"Unknown system property '{name}'.");
+        }
+
+        return value;
+    }
+
+    private void SetSystemPropertyValue(string name, float value) {
+        switch (name.ToLowerInvariant()) {
+            case "_id":
+                throw new InvalidOperationException("System property '_id' is read-only.");
+            default:
+                throw new ArgumentException($"Unknown system property '{name}'.");
         }
     }
 

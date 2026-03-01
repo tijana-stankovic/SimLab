@@ -4,16 +4,19 @@ namespace SimLab.Simulator;
 
 internal class Simulation {
     public bool IsRunning { get; set; } = false;
+    private long _cycle = 0;
+    private long _nextCellId = 1;
 
     private SimulationMode _mode = SimulationMode.SynchronousCA;
+
     public World World { get; }
+
     private Dictionary<Position, Cell> _cellsCurrent = [];
     private Dictionary<Position, Cell> _cellsNext = [];
-    private long _cycle = 0;
-    private CellHandle? _currentCell;
-
     private Dictionary<Position, Cell> ReadBuffer => _cellsCurrent;
     private Dictionary<Position, Cell> WriteBuffer => Mode == SimulationMode.Asynchronous ? _cellsCurrent : _cellsNext;
+
+    private CellHandle? _currentCell;
 
     public Simulation(World world) {
         World = world;
@@ -42,7 +45,6 @@ internal class Simulation {
     public string[] InitializationParameters { get; set; } = [];
     public MethodInfo? UpdateMethod { get; set; }
     public string[] UpdateParameters { get; set; } = [];
-
     public MethodInfo? EvaluationMethod { get; set; }
     public string[] EvaluationParameters { get; set; } = [];
     public MethodInfo? ReproductionMethod { get; set; }
@@ -106,6 +108,7 @@ internal class Simulation {
         if (WriteBuffer.ContainsKey(pos))
             return null; // cell already exists at this position
 
+        cell.SetId(_nextCellId++);
         WriteBuffer[pos] = cell;
         return new CellHandle(pos, cell);
     }
