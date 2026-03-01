@@ -166,13 +166,35 @@ internal class CmdInterpreter {
         return pluginMethod;
     }
 
+    static private SimulationMode ParseModeOrDefault(string? modeText, out bool wasInvalid) {
+        wasInvalid = false;
+        if (string.IsNullOrWhiteSpace(modeText)) {
+            return SimulationMode.SynchronousCA;
+        }
+
+        switch (modeText.Trim().ToUpperInvariant()) {
+            case "SYNCHRONOUSCA":
+                return SimulationMode.SynchronousCA;
+            case "ASYNCHRONOUS":
+                return SimulationMode.Asynchronous;
+            default:
+                wasInvalid = true;
+                return SimulationMode.SynchronousCA;
+        }
+    }
+
     private void LoadConfigurationFile(string fileName) {
         View.Print("[Info] Loading configuration from JSON file: " + fileName);
         if (Json.LoadConfiguration(fileName, out WorldCfg? WorldCfg)) {
             if (WorldCfg != null) {
                 Characteristics.Init(WorldCfg.Characteristics);
                 Simulation = new Simulation(new World(WorldCfg));
+                Simulation.Mode = ParseModeOrDefault(WorldCfg.Mode, out bool invalidMode);
+                if (invalidMode) {
+                    View.Print($"[Warning] Unknown simulation mode '{WorldCfg.Mode}'. Using '{Simulation.Mode}'.");
+                }
                 View.Print("[Info] Configuration successfully loaded from JSON file.");
+                View.Print($"[Info] Simulation mode: {Simulation.Mode}");
                 if (WorldCfg.Initialization != null) {
                     Simulation.InitializationMethod = GetMethod(WorldCfg.Initialization.Method);
                     Simulation.InitializationParameters = WorldCfg.Initialization.Parameters;

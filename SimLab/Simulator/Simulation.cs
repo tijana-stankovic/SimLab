@@ -5,6 +5,7 @@ namespace SimLab.Simulator;
 internal class Simulation {
     public bool IsRunning { get; set; } = false;
 
+    private SimulationMode _mode = SimulationMode.SynchronousCA;
     public World World { get; }
     private readonly Dictionary<Position, Cell> _cellsCurrent = [];
     private readonly Dictionary<Position, Cell> _cellsNext = [];
@@ -13,6 +14,15 @@ internal class Simulation {
     public Simulation(World world) {
         World = world;
         Cell.ActiveWriteCycle = _cycle;
+        Mode = SimulationMode.SynchronousCA;
+    }
+
+    public SimulationMode Mode {
+        get => _mode;
+        set {
+            _mode = value;
+            Cell.SkipWriteAccessCheck = (_mode == SimulationMode.Asynchronous);
+        }
     }
 
     public long Cycle {

@@ -3,6 +3,7 @@
     "space": 2,
     "dimensions": [100, "200"],
     "characteristics": ["age", "size"],
+    "mode": "Asynchronous",
     "initialization": {
         "method": "SimLabPlugIn2.dll;SimLabPlugIn2.PlugIn2;Initialization",
         "parameters": ["testsim_init.txt"] // A text file with initial cell configurations (position and characteristic values)

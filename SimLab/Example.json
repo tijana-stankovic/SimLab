@@ -3,6 +3,7 @@
     "space": 2,
     "dimensions": [100, "200"],
     "characteristics": ["type", "age", "status"],
+    "mode": "Asynchronous",
     "initialization": {
         "method": "SimLabPlugIn.dll;SimLabPlugIn.PlugIn;Initialization"
     },

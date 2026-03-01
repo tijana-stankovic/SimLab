@@ -4,6 +4,7 @@ namespace SimLab.Simulator;
 
 internal class Cell : ICell{
     public static long ActiveWriteCycle { get; set; } = 0;
+    public static bool SkipWriteAccessCheck { get; set; } = false;
 
     private readonly float[] _characteristicValues;
     private CellColor _color = new(0, 0, 0); // RGB
@@ -13,7 +14,7 @@ internal class Cell : ICell{
     public ICellColor Color {
         get => _color;
         set {
-            CheckWriteAccess();
+            WriteAccessCheck();
             _color = ToCellColor(value);
         }
     }
@@ -42,7 +43,7 @@ internal class Cell : ICell{
     public float this[int index] {
         get => _characteristicValues[index];
         set {
-            CheckWriteAccess();
+            WriteAccessCheck();
             _characteristicValues[index] = value;
         }
     }
@@ -51,32 +52,35 @@ internal class Cell : ICell{
     public float this[string name] {
         get => _characteristicValues[Characteristics.GetIndex(name)];
         set {
-            CheckWriteAccess();
+            WriteAccessCheck();
             _characteristicValues[Characteristics.GetIndex(name)] = value;
         }
     }
 
     public void SetColor(byte r, byte g, byte b) {
-        CheckWriteAccess();
+        WriteAccessCheck();
         _color = new CellColor(r, g, b);
     }
 
     public void SetRed(byte r) {
-        CheckWriteAccess();
+        WriteAccessCheck();
         _color = _color.WithRed(r);
     }
 
     public void SetGreen(byte g) {
-        CheckWriteAccess();
+        WriteAccessCheck();
         _color = _color.WithGreen(g);
     }
 
     public void SetBlue(byte b) {
-        CheckWriteAccess();
+        WriteAccessCheck();
         _color = _color.WithBlue(b);
     }
 
-    private void CheckWriteAccess() {
+    private void WriteAccessCheck() {
+        if (SkipWriteAccessCheck)
+            return;
+
         if (WritableInCycle != ActiveWriteCycle) {
             throw new InvalidOperationException("Cannot modify a read-only cell.");
         }

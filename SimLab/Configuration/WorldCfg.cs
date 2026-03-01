@@ -5,6 +5,7 @@ internal class WorldCfg {
     public required int Space { get; init; }
     public required int[] Dimensions { get; init; }
     public required string[] Characteristics { get; init; }
+    public string? Mode { get; init; }
     public MethodCfg? Initialization { get; init; }
     public MethodCfg? Update { get; init; }
     public MethodCfg? Evaluation { get; init; }
