@@ -41,8 +41,10 @@ public class PlugIn {
 
     public static void Update(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] Plug-in method Update...");
-        ICellHandle? cellHandle = api.TryGetCell(-1, -1, 0);
-        if (cellHandle != null) {
+        ICellHandle? cellHandle = api.GetCurrentCell();
+        if (cellHandle != null && cellHandle.Position.X == -1 &&
+                                  cellHandle.Position.Y == -1 &&
+                                  cellHandle.Position.Z == 0) {
             cellHandle.Cell["age"]++;
             Console.WriteLine($"    [Plug-in] Cell at {cellHandle.Position, -15} : Age updated to {cellHandle.Cell["age"]}");
         }

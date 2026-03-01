@@ -62,7 +62,7 @@ public class PlugIn2 {
         // first parameter is "age increment", so, increments the age of all cells by value of the first parameter
         // if the parameter is not provided or is not a valid integer, default increment is 1
         int ageIncrement = 1; // default age increment
-        if (_updateParameters.Length > 1 && int.TryParse(_updateParameters[0], out int parsedIncrement)) {
+        if (_updateParameters.Length > 0 && int.TryParse(_updateParameters[0], out int parsedIncrement)) {
             ageIncrement = parsedIncrement;
         }
         // second parameter is "size increment", so, increments the size of all cells by value of the second parameter
@@ -73,7 +73,8 @@ public class PlugIn2 {
         }
 
 
-        foreach (var cellHandle in api.GetAllCells()) {
+        var cellHandle = api.GetCurrentCell();
+        if (cellHandle != null) {
             cellHandle.Cell["age"] += ageIncrement;
             cellHandle.Cell["size"] += sizeIncrement;
             Console.WriteLine($"    [Plug-in] Cell at {cellHandle.Position, -15} : Age updated to {cellHandle.Cell["age"]}, Size updated to {cellHandle.Cell["size"]}");
