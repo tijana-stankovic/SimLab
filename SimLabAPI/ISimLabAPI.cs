@@ -1,4 +1,4 @@
-﻿namespace SimLabApi;
+namespace SimLabApi;
 
 /// <summary>
 /// This is the SimLab API - the main interface that the simulation engine exposes to plug-ins.
@@ -12,6 +12,7 @@ public interface ISimLabApi {
     // cell management methods
     ICellHandle? AddCell(int x, int y, int z = 0);
     bool RemoveCell(int x, int y, int z = 0);
+    bool RemoveCurrentCell();
     ICellHandle? TryGetCell(int x, int y, int z = 0);
 
 

@@ -123,6 +123,18 @@ internal class Simulation {
         return WriteBuffer.Remove(pos);
     }
 
+    public bool RemoveCurrentCell() {
+        if (_currentCell == null)
+            return false;
+
+        bool removed = WriteBuffer.Remove(_currentCell.Position);
+        if (removed) {
+            ClearCurrentCell();
+        }
+
+        return removed;
+    }
+
     public bool MoveCell(Position from, Position to)
     {
         if (!WriteBuffer.TryGetValue(from, out var cell))

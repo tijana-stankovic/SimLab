@@ -90,18 +90,12 @@ public class PlugIn2 {
         if (_selectionParameters.Length > 0 && int.TryParse(_selectionParameters[0], out int parsedAgeThreshold)) {
             ageThreshold = parsedAgeThreshold;
         }
-        // we need to collect the cells that will be removed in a separate list, 
-        // because we cannot modify the collection of cells while iterating through it
-        List<ICellHandle> cellsToRemove = [];
-        foreach (var cellHandle in api.GetAllCells()) {
-            if (cellHandle.Cell["age"] > ageThreshold) {
-                cellsToRemove.Add(cellHandle);
-            }
-        }
 
-        foreach (var cellHandle in cellsToRemove) {
-            api.RemoveCell(cellHandle.Position.X, cellHandle.Position.Y, cellHandle.Position.Z);
-            Console.WriteLine($"    [Plug-in] Cell at {cellHandle.Position, -15} removed.");
+        ICellHandle? cellHandle = api.GetCurrentCell();
+        if (cellHandle != null && cellHandle.Cell["age"] > ageThreshold) {
+            if (api.RemoveCurrentCell()) {
+                Console.WriteLine($"    [Plug-in] Cell at {cellHandle.Position, -15} removed.");
+            }
         }
     }
 
@@ -120,38 +114,33 @@ public class PlugIn2 {
             sizeThreshold = parsedSizeThreshold;
         }
 
-        // we need to collect the cells that will reproduce in a separate list, 
-        // because we cannot modify the collection of cells while iterating through it
-        List<ICellHandle> cellsToReproduce = [];
-        foreach (var cellHandle in api.GetAllCells()) {
-            if (cellHandle.Cell["size"] > sizeThreshold) {
-                cellsToReproduce.Add(cellHandle);
+        ICellHandle? cellHandle = api.GetCurrentCell();
+        if (cellHandle == null || cellHandle.Cell["size"] <= sizeThreshold) {
+            return;
+        }
+
+        // child cell is added at any free neighboring position
+        // loop at neighboring positions, including diagonals, and 
+        // try to add the child cell at the first free position
+        var directions = new (int dx, int dy)[] { (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1) };
+        foreach (var (dx, dy) in directions) {
+            int newX = cellHandle.Position.X + dx;
+            int newY = cellHandle.Position.Y + dy;
+            int newZ = cellHandle.Position.Z;
+            if (api.TryGetCell(newX, newY, newZ) == null) { // if there is no cell at this position
+                ICellHandle? childCellHandle = api.AddCell(newX, newY, newZ);
+                if (childCellHandle != null) {
+                    childCellHandle.Cell["age"] = 1;
+                    childCellHandle.Cell["size"] = cellHandle.Cell["size"] / 2;
+                    Console.WriteLine($"    [Plug-in] Child cell added at {childCellHandle.Position, -15} with age={childCellHandle.Cell["age"]}, size={childCellHandle.Cell["size"]}");
+                }
+                break; // stop after adding child cell
             }
         }
-        foreach (var cellHandle in cellsToReproduce) {
-            // child cell is added at any free neighboring position
-            // loop at neighboring positions, including diagonals, and 
-            // try to add the second child cell at the first free position
-            var directions = new (int dx, int dy)[] { (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1) };
-            foreach (var (dx, dy) in directions) {
-                int newX = cellHandle.Position.X + dx;
-                int newY = cellHandle.Position.Y + dy;
-                int newZ = cellHandle.Position.Z;
-                if (api.TryGetCell(newX, newY, newZ) == null) { // if there is no cell at this position
-                    ICellHandle? childCellHandle = api.AddCell(newX, newY, newZ);
-                    if (childCellHandle != null) {
-                        childCellHandle.Cell["age"] = 1;
-                        childCellHandle.Cell["size"] = cellHandle.Cell["size"] / 2;
-                        Console.WriteLine($"    [Plug-in] Child cell added at {childCellHandle.Position, -15} with age={childCellHandle.Cell["age"]}, size={childCellHandle.Cell["size"]}");
-                    }
-                    break; // stop after adding child cell
-                }
-            }
 
-            // modify size of the parent cell
-            cellHandle.Cell["size"] = cellHandle.Cell["size"] / 2;
-            Console.WriteLine($"    [Plug-in] Cell at {cellHandle.Position, -15} : Size updated to {cellHandle.Cell["size"]} after splitting.");
-        }   
+        // modify size of the parent cell
+        cellHandle.Cell["size"] = cellHandle.Cell["size"] / 2;
+        Console.WriteLine($"    [Plug-in] Cell at {cellHandle.Position, -15} : Size updated to {cellHandle.Cell["size"]} after splitting.");
     }
 
     // TODO: This is just a test method. Remove later.

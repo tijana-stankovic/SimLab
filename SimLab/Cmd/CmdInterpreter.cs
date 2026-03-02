@@ -278,7 +278,7 @@ internal class CmdInterpreter {
                 }
             }
 
-            void ExecuteUpdatePerCellIfNotNull(MethodInfo? method) {
+            void ExecutePerCellIfNotNull(MethodInfo? method) {
                 if (method == null) {
                     return;
                 }
@@ -306,10 +306,10 @@ internal class CmdInterpreter {
 
             ExecuteIfNotNull(sim.PreCycleMethod);
             ExecuteIfNotNull(sim.ProcessWorldMethod);
-            ExecuteUpdatePerCellIfNotNull(sim.UpdateMethod);
-            ExecuteIfNotNull(sim.EvaluationMethod);
-            ExecuteIfNotNull(sim.ReproductionMethod);
-            ExecuteIfNotNull(sim.SelectionMethod);
+            ExecutePerCellIfNotNull(sim.UpdateMethod);
+            ExecutePerCellIfNotNull(sim.EvaluationMethod);
+            ExecutePerCellIfNotNull(sim.ReproductionMethod);
+            ExecutePerCellIfNotNull(sim.SelectionMethod);
             ExecuteIfNotNull(sim.PostCycleMethod);
             sim.EndCycle();
 

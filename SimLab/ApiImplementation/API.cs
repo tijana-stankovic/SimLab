@@ -1,4 +1,4 @@
-﻿using SimLabApi;
+using SimLabApi;
 using SimLab.Simulator;
 
 namespace SimLab.ApiImplementation;
@@ -41,6 +41,12 @@ internal class API(Simulation? sim) : ISimLabApi {
         if (_sim == null)
             return false;
         return _sim.RemoveCell(new Position(x, y, z));
+    }
+
+    public bool RemoveCurrentCell() {
+        if (_sim == null)
+            return false;
+        return _sim.RemoveCurrentCell();
     }
 
     public ICellHandle? TryGetCell(int x, int y, int z = 0) {
