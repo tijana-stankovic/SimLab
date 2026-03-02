@@ -7,8 +7,11 @@ internal class WorldCfg {
     public required string[] Characteristics { get; init; }
     public string? Mode { get; init; }
     public MethodCfg? Initialization { get; init; }
+    public MethodCfg? PreCycle { get; init; }
+    public MethodCfg? ProcessWorld { get; init; }
     public MethodCfg? Update { get; init; }
     public MethodCfg? Evaluation { get; init; }
     public MethodCfg? Reproduction { get; init; }
     public MethodCfg? Selection { get; init; }
+    public MethodCfg? PostCycle { get; init; }
 }

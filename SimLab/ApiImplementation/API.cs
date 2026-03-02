@@ -57,10 +57,13 @@ internal class API(Simulation? sim) : ISimLabApi {
 
         string[] methodParameters = simulationPhase.ToLower() switch {
             "initialization" => _sim.InitializationParameters,
+            "precycle" => _sim.PreCycleParameters,
+            "processworld" => _sim.ProcessWorldParameters,
             "update" => _sim.UpdateParameters,
             "evaluation" => _sim.EvaluationParameters,
             "reproduction" => _sim.ReproductionParameters,
             "selection" => _sim.SelectionParameters,
+            "postcycle" => _sim.PostCycleParameters,
             _ => []
         };
 

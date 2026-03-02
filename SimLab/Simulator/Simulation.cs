@@ -43,6 +43,10 @@ internal class Simulation {
 
     public MethodInfo? InitializationMethod { get; set; }
     public string[] InitializationParameters { get; set; } = [];
+    public MethodInfo? PreCycleMethod { get; set; }
+    public string[] PreCycleParameters { get; set; } = [];
+    public MethodInfo? ProcessWorldMethod { get; set; }
+    public string[] ProcessWorldParameters { get; set; } = [];
     public MethodInfo? UpdateMethod { get; set; }
     public string[] UpdateParameters { get; set; } = [];
     public MethodInfo? EvaluationMethod { get; set; }
@@ -51,6 +55,8 @@ internal class Simulation {
     public string[] ReproductionParameters { get; set; } = [];
     public MethodInfo? SelectionMethod { get; set; }
     public string[] SelectionParameters { get; set; } = [];
+    public MethodInfo? PostCycleMethod { get; set; }
+    public string[] PostCycleParameters { get; set; } = [];
 
     public void BeginCycle() {
         ClearCurrentCell();

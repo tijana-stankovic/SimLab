@@ -8,7 +8,8 @@ internal class Cell : ICell{
 
     private readonly float[] _characteristicValues;
     private CellColor _color = new(0, 0, 0); // RGB
-    private float Id { get; set; } = -1;
+    private long Id { get; set; } = -1;
+    private float Fitness { get; set; } = 0;
 
     private long WritableInCycle { get; set; }
 
@@ -32,6 +33,7 @@ internal class Cell : ICell{
         _characteristicValues = (float[])other._characteristicValues.Clone();
         _color = other._color;
         Id = other.Id;
+        Fitness = other.Fitness;
         WritableInCycle = ActiveWriteCycle;
     }
 
@@ -41,7 +43,7 @@ internal class Cell : ICell{
         return new Cell(this);
     }
 
-    // access by index – fastest
+    // access by index - fastest
     public float this[int index] {
         get => _characteristicValues[index];
         set {
@@ -100,7 +102,7 @@ internal class Cell : ICell{
         }
     }
 
-    internal void SetId(float id) {
+    internal void SetId(long id) {
         Id = id;
     }
 
@@ -115,6 +117,9 @@ internal class Cell : ICell{
             case "_id":
                 value = Id;
                 break;
+            case "_fitness":
+                value = Fitness;
+                break;
             default:
                 throw new ArgumentException($"Unknown system property '{name}'.");
         }
@@ -126,6 +131,9 @@ internal class Cell : ICell{
         switch (name.ToLowerInvariant()) {
             case "_id":
                 throw new InvalidOperationException("System property '_id' is read-only.");
+            case "_fitness":
+                Fitness = value;
+                break;
             default:
                 throw new ArgumentException($"Unknown system property '{name}'.");
         }

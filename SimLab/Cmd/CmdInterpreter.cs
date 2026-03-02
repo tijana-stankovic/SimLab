@@ -199,6 +199,14 @@ internal class CmdInterpreter {
                     Simulation.InitializationMethod = GetMethod(WorldCfg.Initialization.Method);
                     Simulation.InitializationParameters = WorldCfg.Initialization.Parameters;
                 }
+                if (WorldCfg.PreCycle != null) {
+                    Simulation.PreCycleMethod = GetMethod(WorldCfg.PreCycle.Method);
+                    Simulation.PreCycleParameters = WorldCfg.PreCycle.Parameters;
+                }
+                if (WorldCfg.ProcessWorld != null) {
+                    Simulation.ProcessWorldMethod = GetMethod(WorldCfg.ProcessWorld.Method);
+                    Simulation.ProcessWorldParameters = WorldCfg.ProcessWorld.Parameters;
+                }
                 if (WorldCfg.Update != null) {
                     Simulation.UpdateMethod = GetMethod(WorldCfg.Update.Method);
                     Simulation.UpdateParameters = WorldCfg.Update.Parameters;
@@ -214,6 +222,10 @@ internal class CmdInterpreter {
                 if (WorldCfg.Selection != null) {
                     Simulation.SelectionMethod = GetMethod(WorldCfg.Selection.Method);
                     Simulation.SelectionParameters = WorldCfg.Selection.Parameters;
+                }
+                if (WorldCfg.PostCycle != null) {
+                    Simulation.PostCycleMethod = GetMethod(WorldCfg.PostCycle.Method);
+                    Simulation.PostCycleParameters = WorldCfg.PostCycle.Parameters;
                 }
             }
         } else {
@@ -292,10 +304,13 @@ internal class CmdInterpreter {
                 sim.ClearCurrentCell();
             }
 
+            ExecuteIfNotNull(sim.PreCycleMethod);
+            ExecuteIfNotNull(sim.ProcessWorldMethod);
             ExecuteUpdatePerCellIfNotNull(sim.UpdateMethod);
             ExecuteIfNotNull(sim.EvaluationMethod);
             ExecuteIfNotNull(sim.ReproductionMethod);
             ExecuteIfNotNull(sim.SelectionMethod);
+            ExecuteIfNotNull(sim.PostCycleMethod);
             sim.EndCycle();
 
             PrintCellCharacteristics(sim, "Characteristics of all cells after cycle " + sim.Cycle + ":");
@@ -318,4 +333,3 @@ internal class CmdInterpreter {
         }
     }
 }
- 
