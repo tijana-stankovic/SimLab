@@ -1,0 +1,17 @@
+{
+    "name": "GameOfLifeWorld",
+    "space": 2,
+    "dimensions": [50, 50],
+    "characteristics": [],
+    "mode": "SynchronousCA",
+    "initialization": {
+        "method": "SimLabGOL.dll;SimLabGOL.GameOfLife;Initialization",
+        "parameters": ["GOL.txt"]
+    },
+    "precycle": {
+        "method": "SimLabGOL.dll;SimLabGOL.GameOfLife;PreCycle"
+    },
+    "processworld": {
+        "method": "SimLabGOL.dll;SimLabGOL.GameOfLife;ProcessWorld"
+    }
+}

@@ -6,6 +6,7 @@ internal class Characteristics {
     public static int Count { get; set; } = 0;
 
     public static void Init(string[] listOfCharacteristics){
+        _indexByName.Clear();
         int i = 0;
         foreach (var name in listOfCharacteristics) {
             _indexByName[name.Trim()] = i++;

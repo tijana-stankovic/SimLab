@@ -142,10 +142,4 @@ public class PlugIn2 {
         cellHandle.Cell["size"] = cellHandle.Cell["size"] / 2;
         Console.WriteLine($"    [Plug-in] Cell at {cellHandle.Position, -15} : Size updated to {cellHandle.Cell["size"]} after splitting.");
     }
-
-    // TODO: This is just a test method. Remove later.
-    public static void Test(ISimLabApi api) {
-        Console.WriteLine("Hello from plug-in method Test.");
-        api.Test("plug-in");
-    }
 }
