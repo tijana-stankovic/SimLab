@@ -1,8 +1,6 @@
-using SimLabApi;
-
 namespace SimLab.Simulator;
 
-internal class Position(int x, int y, int z = 0) : IPosition, IEquatable<Position> {
+internal class Position(int x, int y, int z = 0) : IEquatable<Position> {
     public int X { get; } = x;
     public int Y { get; } = y;
     public int Z { get; } = z;

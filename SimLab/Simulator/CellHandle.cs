@@ -1,4 +1,5 @@
 using SimLabApi;
+using ApiPosition = SimLabApi.Position;
 
 namespace SimLab.Simulator;
 
@@ -7,6 +8,6 @@ internal class CellHandle(Position pos, Cell cell) : ICellHandle {
     public Cell Cell { get; } = cell;
 
     // this is necessary to implement interface ICellHandle
-    IPosition ICellHandle.Position => Position;
+    ApiPosition ICellHandle.Position => new(Position.X, Position.Y, Position.Z);
     ICell ICellHandle.Cell => Cell;
 }
