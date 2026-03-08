@@ -3,12 +3,6 @@ using SimLabApi;
 namespace SimLabGOL;
 
 public class GameOfLife {
-    private static readonly (int dx, int dy)[] NeighborOffsets = [
-        (-1, -1), (0, -1), (1, -1),
-        (-1, 0),           (1, 0),
-        (-1, 1),  (0, 1),  (1, 1)
-    ];
-
     private static string[] _initializationParameters = [];
     private static HashSet<Position> _candidatePositions = [];
 
@@ -60,8 +54,8 @@ public class GameOfLife {
         foreach (ICellHandle cellHandle in api.GetAllCells()) {
             Position position = cellHandle.Position;
             _candidatePositions.Add(position);
-            foreach (var (dx, dy) in NeighborOffsets) {
-                _candidatePositions.Add(new Position(position.X + dx, position.Y + dy));
+            foreach (Position neighborPosition in api.GetNeighborPositions(position)) {
+                _candidatePositions.Add(neighborPosition);
             }
         }
 
@@ -73,7 +67,7 @@ public class GameOfLife {
 
         foreach (Position position in _candidatePositions) {
             bool isAlive = api.TryGetCell(position) != null;
-            int liveNeighbors = CountLiveNeighbors(api, position);
+            int liveNeighbors = api.CountNeighbors(position);
 
             if (isAlive) {
                 if (liveNeighbors != 2 && liveNeighbors != 3) {
@@ -83,17 +77,5 @@ public class GameOfLife {
                 api.AddCell(position);
             }
         }
-    }
-
-    private static int CountLiveNeighbors(ISimLabApi api, Position position) {
-        int count = 0;
-
-        foreach (var (dx, dy) in NeighborOffsets) {
-            if (api.TryGetCell(new Position(position.X + dx, position.Y + dy)) != null) {
-                count++;
-            }
-        }
-
-        return count;
     }
 }
