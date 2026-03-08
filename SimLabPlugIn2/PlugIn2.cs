@@ -44,7 +44,7 @@ public class PlugIn2 {
             int age = int.Parse(characteristics[3]);
             int size = int.Parse(characteristics[4]);
 
-            ICellHandle? newCellHandle = api.AddCell(x, y, z);
+            ICellHandle? newCellHandle = api.AddCell(new Position(x, y, z));
             if (newCellHandle != null) {
                 newCellHandle.Cell["age"] = age;
                 newCellHandle.Cell["size"] = size;
@@ -124,11 +124,13 @@ public class PlugIn2 {
         // try to add the child cell at the first free position
         var directions = new (int dx, int dy)[] { (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1) };
         foreach (var (dx, dy) in directions) {
-            int newX = cellHandle.Position.X + dx;
-            int newY = cellHandle.Position.Y + dy;
-            int newZ = cellHandle.Position.Z;
-            if (api.TryGetCell(newX, newY, newZ) == null) { // if there is no cell at this position
-                ICellHandle? childCellHandle = api.AddCell(newX, newY, newZ);
+            Position childPosition = new(
+                cellHandle.Position.X + dx,
+                cellHandle.Position.Y + dy,
+                cellHandle.Position.Z);
+
+            if (api.TryGetCell(childPosition) == null) { // if there is no cell at this position
+                ICellHandle? childCellHandle = api.AddCell(childPosition);
                 if (childCellHandle != null) {
                     childCellHandle.Cell["age"] = 1;
                     childCellHandle.Cell["size"] = cellHandle.Cell["size"] / 2;

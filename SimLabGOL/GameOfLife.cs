@@ -10,7 +10,7 @@ public class GameOfLife {
     ];
 
     private static string[] _initializationParameters = [];
-    private static HashSet<(int X, int Y)> _candidatePositions = [];
+    private static HashSet<Position> _candidatePositions = [];
 
     private static string[] ReadParameters(string simulationPhase, ISimLabApi api) {
         string[] parameters = api.GetPlugInMethodParameters(simulationPhase);
@@ -46,7 +46,7 @@ public class GameOfLife {
             int x = int.Parse(coordinates[0]);
             int y = int.Parse(coordinates[1]);
 
-            ICellHandle? newCellHandle = api.AddCell(x, y, 0);
+            ICellHandle? newCellHandle = api.AddCell(new Position(x, y, 0));
             if (newCellHandle != null) {
                 Console.WriteLine($"    [Plug-in] New cell added at {newCellHandle.Position, -15}");
             }
@@ -58,11 +58,10 @@ public class GameOfLife {
         _candidatePositions.Clear();
 
         foreach (ICellHandle cellHandle in api.GetAllCells()) {
-            int x = cellHandle.Position.X;
-            int y = cellHandle.Position.Y;
-            _candidatePositions.Add((x, y));
+            Position position = cellHandle.Position;
+            _candidatePositions.Add(position);
             foreach (var (dx, dy) in NeighborOffsets) {
-                _candidatePositions.Add((x + dx, y + dy));
+                _candidatePositions.Add(new Position(position.X + dx, position.Y + dy));
             }
         }
 
@@ -72,25 +71,25 @@ public class GameOfLife {
     public static void ProcessWorld(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] Game of Life processing world...");
 
-        foreach (var (x, y) in _candidatePositions) {
-            bool isAlive = api.TryGetCell(x, y, 0) != null;
-            int liveNeighbors = CountLiveNeighbors(api, x, y);
+        foreach (Position position in _candidatePositions) {
+            bool isAlive = api.TryGetCell(position) != null;
+            int liveNeighbors = CountLiveNeighbors(api, position);
 
             if (isAlive) {
                 if (liveNeighbors != 2 && liveNeighbors != 3) {
-                    api.RemoveCell(x, y, 0);
+                    api.RemoveCell(position);
                 }
             } else if (liveNeighbors == 3) {
-                api.AddCell(x, y, 0);
+                api.AddCell(position);
             }
         }
     }
 
-    private static int CountLiveNeighbors(ISimLabApi api, int x, int y) {
+    private static int CountLiveNeighbors(ISimLabApi api, Position position) {
         int count = 0;
 
         foreach (var (dx, dy) in NeighborOffsets) {
-            if (api.TryGetCell(x + dx, y + dy, 0) != null) {
+            if (api.TryGetCell(new Position(position.X + dx, position.Y + dy)) != null) {
                 count++;
             }
         }
