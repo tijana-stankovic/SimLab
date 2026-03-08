@@ -1,4 +1,6 @@
 using SimLabApi;
+using ApiColor = SimLabApi.Color;
+using SimColor = SimLab.Simulator.Color;
 
 namespace SimLab.Simulator;
 
@@ -7,17 +9,17 @@ internal class Cell : ICell{
     public static bool SkipWriteAccessCheck { get; set; } = false;
 
     private readonly float[] _characteristicValues;
-    private CellColor _color = new(0, 0, 0); // RGB
+    private SimColor _color = new(0, 0, 0); // RGB
     private long Id { get; set; } = -1;
     private float Fitness { get; set; } = 0;
 
     private long WritableInCycle { get; set; }
 
-    public ICellColor Color {
-        get => _color;
+    public ApiColor Color {
+        get => new(_color.R, _color.G, _color.B);
         set {
             WriteAccessCheck();
-            _color = ToCellColor(value);
+            _color = ToSimColor(value);
         }
     }
 
@@ -75,7 +77,7 @@ internal class Cell : ICell{
 
     public void SetColor(byte r, byte g, byte b) {
         WriteAccessCheck();
-        _color = new CellColor(r, g, b);
+        _color = new SimColor(r, g, b);
     }
 
     public void SetRed(byte r) {
@@ -139,11 +141,7 @@ internal class Cell : ICell{
         }
     }
 
-    private static CellColor ToCellColor(ICellColor color) {
-        if (color is CellColor cellColor) {
-            return cellColor;
-        }
-
-        return new CellColor(color.R, color.G, color.B);
+    private static SimColor ToSimColor(ApiColor color) {
+        return new SimColor(color.R, color.G, color.B);
     }
 }
