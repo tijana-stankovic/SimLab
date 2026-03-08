@@ -5,6 +5,7 @@ using SimLab.Status;
 using SimLab.Output;
 using SimLab.PlugInUtility;
 using System.Reflection;
+using SimLab.Visualization;
 
 namespace SimLab.Cmd;
 
@@ -17,6 +18,8 @@ internal class CmdInterpreter {
     public bool QuitSignal { get; set; } = false;
 
     public Simulation? Simulation { get; set; } = null;
+    private FrameBuffer? FrameBuffer { get; set; } = null;
+    private Visualizer Visualizer { get; } = new();
 
     public CmdInterpreter(string[] args) {
         if (args.Length != 0) {
@@ -64,6 +67,15 @@ internal class CmdInterpreter {
                 }
                 break;
 
+            case "S":
+            case "SHOW":
+                if (cmd.Args.Length != 0) {
+                    View.Print("SHOW command does not accept arguments.");
+                    break;
+                }
+                Show();
+                break;
+
             case "T":
             case "TEST":
                 TestPlugIn();
@@ -88,6 +100,12 @@ internal class CmdInterpreter {
         View.Print("  Display information about program.");
         View.Print("- EXIT (E, X)");
         View.Print("  Exit the program.");
+        View.Print("- TESTSIM (TS) <number-of-cycles>");
+        View.Print("  Run the simulation for the specified number of cycles.");
+        View.Print("- SHOW (S)");
+        View.Print("  Open the visualization window for generated frames.");
+        View.Print("- TEST (T)");
+        View.Print("  Test a plug-in method.");
     }
 
     /// <summary>
@@ -189,6 +207,7 @@ internal class CmdInterpreter {
             if (WorldCfg != null) {
                 Characteristics.Init(WorldCfg.Characteristics);
                 Simulation = new Simulation(new World(WorldCfg));
+                FrameBuffer = new FrameBuffer(Simulation.World);
                 Simulation.Mode = ParseModeOrDefault(WorldCfg.Mode, out bool invalidMode);
                 if (invalidMode) {
                     View.Print($"[Warning] Unknown simulation mode '{WorldCfg.Mode}'. Using '{Simulation.Mode}'.");
@@ -233,6 +252,15 @@ internal class CmdInterpreter {
         }
     }
 
+    private void Show() {
+        if (FrameBuffer == null) {
+            View.Print("[Show] No generated frames available. Run TESTSIM first.");
+            return;
+        }
+
+        Visualizer.Show(FrameBuffer);
+    }
+
     private void TestSim(int numberOfCycles) {
         if (Simulation == null) {
             View.Print("No simulation created from configuration file. Cannot run TestSim.");
@@ -257,6 +285,7 @@ internal class CmdInterpreter {
                     View.Print($"[TestSim] Initialization error: {error}");
             }
             sim.EndCycle();
+            FrameBuffer?.Capture(sim);
             PrintCellCharacteristics(sim, "Initial characteristics of all cells:");
         } else {
             PrintCellCharacteristics(sim, "Current characteristics of all cells:");
@@ -312,6 +341,7 @@ internal class CmdInterpreter {
             ExecutePerCellIfNotNull(sim.SelectionMethod);
             ExecuteIfNotNull(sim.PostCycleMethod);
             sim.EndCycle();
+            FrameBuffer?.Capture(sim);
 
             PrintCellCharacteristics(sim, "Characteristics of all cells after cycle " + sim.Cycle + ":");
         }
