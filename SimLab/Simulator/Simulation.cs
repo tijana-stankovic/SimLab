@@ -1,8 +1,33 @@
+using SimLabApi;
 using System.Reflection;
 
 namespace SimLab.Simulator;
 
 internal class Simulation {
+    private static readonly (int dx, int dy)[] s_vonNeumannOffsets2D = [
+        (0, -1),
+        (-1, 0),
+        (1, 0),
+        (0, 1)
+    ];
+
+    private static readonly (int dx, int dy)[] s_mooreOffsets2D = [
+        (-1, -1), (0, -1), (1, -1),
+        (-1, 0),            (1, 0),
+        (-1, 1),  (0, 1),   (1, 1)
+    ];
+
+    private static readonly (int dx, int dy, int dz)[] s_vonNeumannOffsets3D = [
+        (1, 0, 0),
+        (-1, 0, 0),
+        (0, 1, 0),
+        (0, -1, 0),
+        (0, 0, 1),
+        (0, 0, -1)
+    ];
+
+    private static readonly (int dx, int dy, int dz)[] s_mooreOffsets3D = BuildMooreOffsets3D();
+
     public bool IsRunning { get; set; } = false;
     private long _cycle = 0;
     private long _nextCellId = 1;
@@ -151,5 +176,68 @@ internal class Simulation {
 
     public IEnumerable<CellHandle> GetAllCells() {
         return ReadBuffer.Select(pair => new CellHandle(pair.Key, pair.Value));
+    }
+
+    public IEnumerable<Position> GetNeighborPositions(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
+        return World.Space == 2
+            ? GetNeighborPositions2D(pos, type)
+            : GetNeighborPositions3D(pos, type);
+    }
+
+    public IEnumerable<CellHandle> GetNeighbors(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
+        foreach (Position neighborPos in GetNeighborPositions(pos, type)) {
+            if (ReadBuffer.TryGetValue(neighborPos, out var cell)) {
+                yield return new CellHandle(neighborPos, cell);
+            }
+        }
+    }
+
+    public int CountNeighbors(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
+        int count = 0;
+
+        foreach (Position neighborPos in GetNeighborPositions(pos, type)) {
+            if (ReadBuffer.ContainsKey(neighborPos)) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private IEnumerable<Position> GetNeighborPositions2D(Position pos, NeighborhoodType type) {
+        var offsets = type == NeighborhoodType.VonNeumann
+            ? s_vonNeumannOffsets2D
+            : s_mooreOffsets2D;
+
+        foreach (var (dx, dy) in offsets) {
+            yield return new Position(pos.X + dx, pos.Y + dy, pos.Z);
+        }
+    }
+
+    private IEnumerable<Position> GetNeighborPositions3D(Position pos, NeighborhoodType type) {
+        var offsets = type == NeighborhoodType.VonNeumann
+            ? s_vonNeumannOffsets3D
+            : s_mooreOffsets3D;
+
+        foreach (var (dx, dy, dz) in offsets) {
+            yield return new Position(pos.X + dx, pos.Y + dy, pos.Z + dz);
+        }
+    }
+
+    private static (int dx, int dy, int dz)[] BuildMooreOffsets3D() {
+        List<(int dx, int dy, int dz)> offsets = [];
+
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (dx == 0 && dy == 0 && dz == 0)
+                        continue;
+
+                    offsets.Add((dx, dy, dz));
+                }
+            }
+        }
+
+        return offsets.ToArray();
     }
 }

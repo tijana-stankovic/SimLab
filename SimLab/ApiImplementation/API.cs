@@ -24,6 +24,54 @@ internal class API(Simulation? sim) : ISimLabApi {
         return _sim.GetAllCells();
     }
 
+    // neighborhood methods
+    public IEnumerable<ApiPosition> GetNeighborPositions(ApiPosition pos, NeighborhoodType type = NeighborhoodType.Moore) {
+        if (_sim == null)
+            return [];
+
+        return _sim.GetNeighborPositions(ToSimulatorPosition(pos), type)
+            .Select(ToApiPosition);
+    }
+
+    public IEnumerable<ApiPosition> GetNeighborPositions(int x, int y, NeighborhoodType type = NeighborhoodType.Moore) {
+        return GetNeighborPositions(new ApiPosition(x, y), type);
+    }
+
+    public IEnumerable<ApiPosition> GetNeighborPositions(int x, int y, int z, NeighborhoodType type = NeighborhoodType.Moore) {
+        return GetNeighborPositions(new ApiPosition(x, y, z), type);
+    }
+
+    public IEnumerable<ICellHandle> GetNeighbors(ApiPosition pos, NeighborhoodType type = NeighborhoodType.Moore) {
+        if (_sim == null)
+            return [];
+
+        return _sim.GetNeighbors(ToSimulatorPosition(pos), type);
+    }
+
+    public IEnumerable<ICellHandle> GetNeighbors(int x, int y, NeighborhoodType type = NeighborhoodType.Moore) {
+        return GetNeighbors(new ApiPosition(x, y), type);
+    }
+
+    public IEnumerable<ICellHandle> GetNeighbors(int x, int y, int z, NeighborhoodType type = NeighborhoodType.Moore) {
+        return GetNeighbors(new ApiPosition(x, y, z), type);
+    }
+
+    public int CountNeighbors(ApiPosition pos, NeighborhoodType type = NeighborhoodType.Moore) {
+        if (_sim == null)
+            return 0;
+
+        return _sim.CountNeighbors(ToSimulatorPosition(pos), type);
+    }
+
+    public int CountNeighbors(int x, int y, NeighborhoodType type = NeighborhoodType.Moore) {
+        return CountNeighbors(new ApiPosition(x, y), type);
+    }
+
+    public int CountNeighbors(int x, int y, int z, NeighborhoodType type = NeighborhoodType.Moore) {
+        return CountNeighbors(new ApiPosition(x, y, z), type);
+    }
+
+    // cell management methods
     public ICellHandle? TryGetCell(ApiPosition pos) {
         if (_sim == null)
             return null;
@@ -80,8 +128,20 @@ internal class API(Simulation? sim) : ISimLabApi {
         return _sim.MoveCell(ToSimulatorPosition(from), ToSimulatorPosition(to));
     }
 
+    public bool MoveCell(int fromX, int fromY, int toX, int toY) {
+        return MoveCell(new ApiPosition(fromX, fromY), new ApiPosition(toX, toY));
+    }
+
     public bool MoveCell(int fromX, int fromY, int fromZ, int toX, int toY, int toZ) {
         return MoveCell(new ApiPosition(fromX, fromY, fromZ), new ApiPosition(toX, toY, toZ));
+    }
+
+    private static SimulatorPosition ToSimulatorPosition(ApiPosition pos) {
+        return new SimulatorPosition(pos.X, pos.Y, pos.Z);
+    }
+
+    private static ApiPosition ToApiPosition(SimulatorPosition pos) {
+        return new ApiPosition(pos.X, pos.Y, pos.Z);
     }
 
     public string[] GetPlugInMethodParameters(string simulationPhase) {
@@ -102,13 +162,9 @@ internal class API(Simulation? sim) : ISimLabApi {
 
         return methodParameters;
     }
-
+    
     // TODO: This is just a test method. Remove later.
     public void Test(string callOrigin) {
         Console.WriteLine($"Hello from API method Test (call from {callOrigin}).");
-    }
-
-    private static SimulatorPosition ToSimulatorPosition(ApiPosition pos) {
-        return new SimulatorPosition(pos.X, pos.Y, pos.Z);
     }
 }
