@@ -253,12 +253,21 @@ internal class CmdInterpreter {
     }
 
     private void Show() {
-        if (FrameBuffer == null) {
+        if (FrameBuffer == null || !FrameBuffer.HasFrames) {
             View.Print("[Show] No generated frames available. Run TESTSIM first.");
             return;
         }
 
-        Visualizer.Show(FrameBuffer);
+        try {
+            int frameIndex = Visualizer.Show(FrameBuffer);
+            if (frameIndex == 0) {
+                View.Print($"[Show] Closed visualization on the initial cells position.");
+            } else if (frameIndex > 0) {
+                View.Print($"[Show] Closed visualization on frame {frameIndex}/{FrameBuffer.Count - 1}.");
+            }
+        } catch (Exception ex) {
+            View.Print($"[Show] Visualization error: {ex.Message}");
+        }
     }
 
     private void TestSim(int numberOfCycles) {
