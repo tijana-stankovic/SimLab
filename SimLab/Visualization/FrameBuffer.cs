@@ -13,13 +13,13 @@ internal class FrameBuffer {
     }
 
     public void Capture(Simulation simulation) {
-        //TODO
-        // add frame to frame buffer
-        // e.g.
-        // _frames.Add(new Frame(simulation.Cycle, simulation.GetAllCells().Select(ch => ch.Cell.Clone()).ToList()));
+        _frames.Add(Frame.CreateFromSimulation(simulation));
     }
 
-    public Frame GetFrame(int index) {
+    public Frame? GetFrame(int index) {
+        if (index < 0 || index >= _frames.Count) {
+            return null;
+        }
         return _frames[index];
     }
 }
