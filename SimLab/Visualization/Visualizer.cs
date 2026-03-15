@@ -5,13 +5,17 @@ using RayColor = Raylib_cs.Color;
 
 namespace SimLab.Visualization;
 
-// based on https://github.com/raylib-cs/raylib-cs/blob/master/Examples/Core/Camera3dFree.cs
+// based on:
+// https://github.com/raylib-cs/raylib-cs/blob/master/Examples/Core/Camera3dFree.cs
+// https://smarttis.mooo.com/raylib.cs
 internal class Visualizer {
     private const int ScreenWidth = 1200;
     private const int ScreenHeight = 800;
     private const float CellSize = 1.0f;
 
-    public int Show(FrameBuffer frameBuffer) {
+    private static bool DisplayHUD { get; set; } = true;
+
+    public static int Show(FrameBuffer frameBuffer) {
         int currentFrameIndex = frameBuffer.GetStartFrameIndex();
         if (currentFrameIndex < 0) {
             return -1;
@@ -25,9 +29,18 @@ internal class Visualizer {
         Raylib.InitWindow(ScreenWidth, ScreenHeight, "SimLab Visualization");
         Raylib.SetTargetFPS(60);
 
+        // custom camera settings
+        Vector3 target = Vector3.Zero;
+        float distance = 50f;                // target distance (how far you are from the target)
+        float yaw = -MathF.PI * 0.25f;       // initial azimuth (-45°)
+        float pitch = MathF.PI * 0.25f;      // initial elevation (45°)
+
+        // this initial camera position is not really important, 
+        // because the camera will be updated in the first frame of the visualization loop
+        // based on the target, distance, yaw, and pitch settings above
         Camera3D camera = new Camera3D(
             new Vector3(10, 10, 10),        // position (camera is located at this point)
-            new Vector3(0, 0, 0),           // target (camera looks at this point)
+            target,                         // target (camera looks at this point)
             new Vector3(0, 1, 0),           // up vector (used to determine the camera's orientation)
             45,                             // fov (degrees, defines the field of view)
             CameraProjection.Perspective    // projection mode (perspective or orthographic)
@@ -35,51 +48,19 @@ internal class Visualizer {
 
         try {
             while (!Raylib.WindowShouldClose()) {
-                Frame frame = frameBuffer.GetFrame(currentFrameIndex)!;
+                UpdateCurrentFrameIndex(frameBuffer, ref currentFrameIndex);
 
-                // handle left and right arrow keys to navigate through frames
-                if (Raylib.IsKeyDown(KeyboardKey.Left)) {
-                    currentFrameIndex = Math.Max(currentFrameIndex - 1, 0);
-                }
-                if (Raylib.IsKeyDown(KeyboardKey.Right)) {
-                    currentFrameIndex = Math.Min(currentFrameIndex + 1, frameBuffer.Count - 1);
-                }                
+                // RayLib camera update:
+                // Raylib.UpdateCamera(ref camera, CameraMode.Free);
 
-                Raylib.UpdateCamera(ref camera, CameraMode.Free);
+                // Custom camera update
+                Camera.Update(ref camera, ref target, ref distance, ref yaw, ref pitch,
+                        // camera movement sensitivity settings:
+                        orbitSens: 0.005f, 
+                        panSens: 0.002f, 
+                        zoomSens: 1.0f);
 
-                Raylib.BeginDrawing();
-                Raylib.ClearBackground(RayColor.Black);
-
-                Raylib.BeginMode3D(camera);
-
-                DrawGrid(frameBuffer, frame);
-                Raylib.DrawLine3D(new Vector3(0, 0, 0), new Vector3(5, 0, 0), RayColor.Red);   // X osa
-                Raylib.DrawLine3D(new Vector3(0, 0, 0), new Vector3(0, 5, 0), RayColor.Green); // Y osa
-                Raylib.DrawLine3D(new Vector3(0, 0, 0), new Vector3(0, 0, 5), RayColor.Blue);  // Z osa
-
-                // draw cells from framebuffer
-                foreach (Position pos in frame.Cells) {
-                    // if (frameBuffer.WorldSpace == 2) {
-                    //     Raylib.DrawCube(new Vector3(pos.X, pos.Z, pos.Y), CellSize, CellSize, CellSize, RayColor.Yellow);
-                    // } else if (frameBuffer.WorldSpace == 3) {
-                    //     Raylib.DrawCube(new Vector3(pos.X, pos.Y, pos.Z), CellSize, CellSize, CellSize, RayColor.Yellow);
-                    // }
-                    Vector3 cellPosition = AdjustedCellPosition(frameBuffer.WorldSpace, pos);
-                    Raylib.DrawCube(cellPosition, CellSize, CellSize, CellSize, RayColor.Lime);
-                    Raylib.DrawCubeWires(cellPosition, CellSize, CellSize, CellSize, new RayColor(20, 80, 20, 255));
-                }
-
-                Raylib.EndMode3D();
-
-                // HUD information
-                Raylib.DrawText($"Frame: {currentFrameIndex + 1}/{frameBuffer.Count}", 10, 10, 20, RayColor.White);
-                if (frame != null)
-                    Raylib.DrawText($"Cells: {frame.Cells.Count}", 10, 40, 20, RayColor.White);
-                Raylib.DrawText("[LeftMouseButton]=orbit  [Wheel]=zoom  WASD/QE=move", 10, 70, 20, RayColor.LightGray);
-                Raylib.DrawText("LEFT/RIGHT = frame navigation", 10, 100, 20, RayColor.LightGray);
-                Raylib.DrawText("ESC = close visualization", 10, 130, 20, RayColor.LightGray);
-
-                Raylib.EndDrawing();
+                DrawCurrentFrame(frameBuffer, currentFrameIndex, camera);
             }
         } finally {
             Raylib.CloseWindow();
@@ -89,10 +70,49 @@ internal class Visualizer {
         return currentFrameIndex;
     }
 
+    // handles user input to navigate through frames using Left and Right arrow keys, 
+    // with optional Shift key for faster navigation
+    private static void UpdateCurrentFrameIndex(FrameBuffer frameBuffer, ref int currentFrameIndex) {
+        // handle left and right arrow keys to navigate through frames
+        if (Raylib.IsKeyDown(KeyboardKey.LeftShift) || Raylib.IsKeyDown(KeyboardKey.RightShift)) {
+            if (Raylib.IsKeyDown(KeyboardKey.Left)) {
+                currentFrameIndex = Math.Max(currentFrameIndex - 1, 0);
+            }
+            if (Raylib.IsKeyDown(KeyboardKey.Right)) {
+                currentFrameIndex = Math.Min(currentFrameIndex + 1, frameBuffer.Count - 1);
+            }
+        } else {
+            if (Raylib.IsKeyPressed(KeyboardKey.Left)) {
+                currentFrameIndex = Math.Max(currentFrameIndex - 1, 0);
+            }
+            if (Raylib.IsKeyPressed(KeyboardKey.Right)) {
+                currentFrameIndex = Math.Min(currentFrameIndex + 1, frameBuffer.Count - 1);
+            }
+        }
+    }
+
+    // draws the current frame, including the grid and cells, and displays HUD information
+    private static void DrawCurrentFrame(FrameBuffer frameBuffer, int currentFrameIndex, Camera3D camera) {
+        Frame frame = frameBuffer.GetFrame(currentFrameIndex)!;
+
+        Raylib.BeginDrawing();
+        Raylib.ClearBackground(RayColor.Black);
+
+        Raylib.BeginMode3D(camera);
+        DrawGrid(frameBuffer, frame);
+        DrawCells(frameBuffer.WorldSpace, frame);
+        Raylib.EndMode3D();
+
+        DrawHUD(frameBuffer, currentFrameIndex, frame);
+
+        Raylib.EndDrawing();
+    }
+
     // dinamically calculates grid bounds based on world dimensions and cell positions in the frame, 
     // then draws the grid lines
     private static void DrawGrid(FrameBuffer frameBuffer, Frame frame) {
         // first, calculates grid bounds based on frame buffer world dimensions and cell positions
+        // then, draws grid lines and coordinate axes
 
         // when any world dimension are not specified, use default value of 10
         int worldWidth = frameBuffer.WorldDimensions.Length > 0 ? frameBuffer.WorldDimensions[0] : 10;
@@ -144,6 +164,21 @@ internal class Visualizer {
                 lineColor);
         }
 
+        // draw coordinate axes
+        Raylib.DrawLine3D(new Vector3(0, 0, 0), new Vector3(maxX, 0, 0), RayColor.Red);   // X axis
+        if (frameBuffer.WorldSpace == 3) {
+            Raylib.DrawLine3D(new Vector3(0, 0, 0), new Vector3(0, 10f, 0), RayColor.Green); // Y axis
+        }
+        Raylib.DrawLine3D(new Vector3(0, 0, 0), new Vector3(0, 0, maxZ), RayColor.Blue);  // Z axis
+    }
+
+    // draws cells as cubes based on their positions in the frame
+    private static void DrawCells(int worldSpace, Frame frame) {
+        foreach (Position pos in frame.Cells) {
+            Vector3 cellPosition = AdjustedCellPosition(worldSpace, pos);
+            Raylib.DrawCube(cellPosition, CellSize, CellSize, CellSize, RayColor.Lime);
+            Raylib.DrawCubeWires(cellPosition, CellSize, CellSize, CellSize, new RayColor(20, 80, 20, 255));
+        }
     }
 
     // Adjusts the position of a cell based on the world space (2D or 3D).
@@ -156,5 +191,23 @@ internal class Visualizer {
         }
 
         return new Vector3(position.X + CellSize/2, position.Y + CellSize/2, position.Z + CellSize/2);
+    }
+
+    // draws HUD information
+    private static void DrawHUD(FrameBuffer frameBuffer, int currentFrameIndex, Frame frame) {
+        // HUD control: toggle display of HUD information with H key
+        if (Raylib.IsKeyPressed(KeyboardKey.H)) {
+            DisplayHUD = !DisplayHUD;
+        }
+        // HUD information
+        if (DisplayHUD) {
+            Raylib.DrawText($"Frame: {currentFrameIndex + 1}/{frameBuffer.Count}", 10, 10, 20, RayColor.White);
+            if (frame != null)
+                Raylib.DrawText($"Cells: {frame.Cells.Count}", 10, 40, 20, RayColor.White);
+            Raylib.DrawText("[LeftMouseButton]=orbit  [RightMouseButton or QEAD]=pan [Wheel or WS]=zoom", 10, 70, 20, RayColor.LightGray);
+            Raylib.DrawText("LEFT/RIGHT = frame navigation (with Shift for faster navigation)", 10, 100, 20, RayColor.LightGray);
+            Raylib.DrawText("ESC = close visualization", 10, 130, 20, RayColor.LightGray);
+            Raylib.DrawText("H = HUD display on/off", 10, 160, 20, RayColor.LightGray);
+        }
     }
 }
