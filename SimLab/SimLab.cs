@@ -1,5 +1,5 @@
-﻿using SimLab.Cmd;
-using Npgsql;
+using SimLab.Cmd;
+using SimLab.DB;
 
 namespace SimLab;
 
@@ -11,53 +11,37 @@ internal class SimLab {
 
     /// <summary>
     /// The starting point of the application.
-    /// This method is called when the program starts. 
+    /// This method is called when the program starts.
     /// It initializes the controller part of the application and passes control to the controller.
     /// Only one command line parameter is supported:
     /// 'configuration-file-name', which is the name of the SimLab configuration file.
     /// </summary>
     /// <param name="args">The command-line arguments passed to the program.</param>
+    public static void Main(string[] args) {
+        string password = Cli.ReadPassword("Enter password for user 'simlab': ");
+        string connectionString = $"Host=localhost;Port=5432;Database=simlab;Username=simlab;Password={password}";
+        IDatabase database = DatabaseSelector.Select(DatabaseType.PostgreSql, connectionString);
 
-
-    // public static void Main(string[] args) {
-    public static async Task Main(string[] args) {
-        static string ReadPassword() {
-            var password = "";
-            ConsoleKey key;
-
-            do {
-                var keyInfo = Console.ReadKey(intercept: true);
-                key = keyInfo.Key;
-
-                if (key == ConsoleKey.Backspace && password.Length > 0) {
-                    password = password[..^1];
-                } else if (!char.IsControl(keyInfo.KeyChar)) {
-                    password += keyInfo.KeyChar;
-                }
+        if (database.Connect(out string? error)) {
+            if (database.TryGetConnectionInfo(out string? userName, out string? databaseName, out error)) {
+                Console.WriteLine($"User: {userName}");
+                Console.WriteLine($"Database: {databaseName}");
+            } else {
+                Console.WriteLine("Connected to database.");
             }
-            while (key != ConsoleKey.Enter);
-
-            Console.WriteLine();
-            return password;
+        } else {
+            Console.Error.WriteLine($"Database connection failed: {error}");
         }
-
-        Console.Write("Enter password for user 'simlab': ");
-        string password = ReadPassword();
-        var connectionString = $"Host=localhost;Port=5432;Database=simlab;Username=simlab;Password={password}";
-        await using var dataSource = NpgsqlDataSource.Create(connectionString);
-        await using var conn = await dataSource.OpenConnectionAsync();
-        await using var cmd = new NpgsqlCommand("SELECT current_user, current_database()", conn);
-        await using var reader = await cmd.ExecuteReaderAsync();
-        if (await reader.ReadAsync()) {
-            Console.WriteLine($"User: {reader.GetString(0)}");
-            Console.WriteLine($"Database: {reader.GetString(1)}");
-        }
-
 
         if (args.Length <= 1) {
-            Controller controller = new(args);
-            controller.Run();
+            try {
+                Controller controller = new(args);
+                controller.Run();
+            } finally {
+                database.Disconnect();
+            }
         } else {
+            database.Disconnect();
             Console.Error.WriteLine();
             Console.Error.WriteLine("Usage: simlab [configuration-file-name]");
         }

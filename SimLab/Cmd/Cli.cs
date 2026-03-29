@@ -98,4 +98,40 @@ internal class Cli {
             }
         }
     }
+
+    /// <summary>
+    /// Reads a password from console input while masking typed characters with '*'.
+    /// </summary>
+    /// <param name="prompt">Prompt text displayed before password input.</param>
+    /// <returns>The entered password.</returns>
+    static public string ReadPassword(string prompt) {
+        View.Print(prompt, false);
+
+        string password = "";
+
+        while (true) {
+            ConsoleKeyInfo keyInfo = Console.ReadKey(intercept: true); // read a key without displaying it
+
+            // if Enter is pressed, finish and return the password
+            if (keyInfo.Key == ConsoleKey.Enter) {
+                Console.WriteLine();
+                return password;
+            }
+
+            // if Backspace is pressed, remove the last character from the password
+            if (keyInfo.Key == ConsoleKey.Backspace) {
+                if (password.Length > 0) {
+                    password = password[..^1]; // remove the last character from the password if it exists
+                    Console.Write("\b \b"); // move back, overwrite with space, move back again
+                }
+                continue;
+            }
+
+            // for all other characters, add the typed character to the password
+            if (!char.IsControl(keyInfo.KeyChar)) { // ignore control characters
+                password += keyInfo.KeyChar;
+                Console.Write('*'); // show asterisk instead of the actual character
+            }
+        }
+    }
 }
