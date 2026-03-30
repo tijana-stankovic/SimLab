@@ -1,6 +1,7 @@
 namespace SimLab.Configuration;
 
 internal class WorldCfg {
+    public string? Uid { get; init; }
     public required string Name { get; init; }
     public required int Space { get; init; }
     public required int[] Dimensions { get; init; }
