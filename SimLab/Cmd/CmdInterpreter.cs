@@ -6,6 +6,8 @@ using SimLab.Output;
 using SimLab.PlugInUtility;
 using System.Reflection;
 using SimLab.Visualization;
+using SimLab.DB;
+using System.Text;
 
 namespace SimLab.Cmd;
 
@@ -20,8 +22,15 @@ internal class CmdInterpreter {
     public Simulation? Simulation { get; set; } = null;
     private FrameBuffer? FrameBuffer { get; set; } = null;
     private Visualizer Visualizer { get; } = new();
+    private IDatabase? Database { get; set; }
+    private const string DatabaseConfigFileName = "DatabaseConfig.json";
 
     public CmdInterpreter(string[] args) {
+        if (!InitializeDatabase()) {
+            QuitSignal = true;
+            return;
+        }
+
         if (args.Length != 0) {
             LoadConfigurationFile(args[0]);
         }
@@ -67,6 +76,11 @@ internal class CmdInterpreter {
                 }
                 break;
 
+            case "W":
+            case "WORLD":
+                World(cmd.Args);
+                break;
+
             case "S":
             case "SHOW":
                 if (cmd.Args.Length != 0) {
@@ -100,6 +114,13 @@ internal class CmdInterpreter {
         View.Print("  Display information about program.");
         View.Print("- EXIT (E, X)");
         View.Print("  Exit the program.");
+        View.Print("- WORLD (W) <subcommand> [arguments]");
+        View.Print("  Manage worlds in database.");
+        View.Print("  Subcommands:");
+        View.Print("    - WORLD LIST");
+        View.Print("    - WORLD ADD <json-config-file>");
+        View.Print("    - WORLD LOAD <world-uid>");
+        View.Print("    - WORLD REMOVE <world-uid>");
         View.Print("- TESTSIM (TS) <number-of-cycles>");
         View.Print("  Run the simulation for the specified number of cycles.");
         View.Print("- SHOW (S)");
@@ -121,6 +142,7 @@ internal class CmdInterpreter {
     /// Sets the request (quit signal) for exiting the program.
     /// </summary>
     private void Exit() {
+        Database?.Disconnect();
         QuitSignal = true;
     }
 
@@ -201,9 +223,96 @@ internal class CmdInterpreter {
         }
     }
 
+    private bool InitializeDatabase() {
+        View.Print($"[Info] Loading database configuration from JSON file: {DatabaseConfigFileName}");
+
+        if (!DatabaseConfigJson.LoadConfiguration(DatabaseConfigFileName, out DatabaseCfg? config, out string? configError)) {
+            View.Print($"[Fatal] {configError}");
+            View.Print("[Fatal] Program cannot continue without a valid database configuration.");
+            return false;
+        }
+
+        if (config == null) {
+            return false;
+        }
+
+        if (!ParseDatabaseType(config.Type!, out DatabaseType databaseType, out string? parseError)) {
+            View.Print($"[Fatal] {parseError}");
+            View.Print("[Fatal] Program cannot continue.");
+            return false;
+        }
+
+        string password = Cli.ReadPassword($"Enter database password for user '{config.User}': ");
+        string connectionString = BuildConnectionString(config, password);
+
+        IDatabase database;
+        try {
+            database = DatabaseSelector.Select(databaseType, connectionString);
+        } catch (Exception ex) {
+            View.Print($"[Fatal] Unable to connect to database: {ex.Message}");
+            View.Print("[Fatal] Program cannot continue.");
+            return false;
+        }
+
+        if (!database.Connect(out string? connectError)) {
+            database.Disconnect();
+            View.Print($"[Fatal] Database connection failed: {connectError}");
+            View.Print("[Fatal] Program cannot continue.");
+            return false;
+        }
+
+        Database = database;
+
+        if (Database.GetConnectionInfo(out string? userName, out string? databaseName, out string? infoError)) {
+            View.Print($"[Info] Connected to database '{databaseName}' as user '{userName}'.");
+        } else {
+            View.Print($"[Warning] Connected, but could not read connection info: {infoError}");
+        }
+
+        return true;
+    }
+
+    static private bool ParseDatabaseType(string databaseTypeText, out DatabaseType databaseType, out string? error) {
+        if (string.IsNullOrWhiteSpace(databaseTypeText)) {
+            databaseType = default;
+            error = "Database type is empty in DatabaseConfig.json.";
+            return false;
+        }
+
+        switch (databaseTypeText.Trim().ToUpperInvariant()) {
+            case "POSTGRESQL":
+                databaseType = DatabaseType.PostgreSql;
+                error = null;
+                return true;
+            case "ORACLE":
+                databaseType = DatabaseType.Oracle;
+                error = null;
+                return true;
+            case "SQLSERVER":
+                databaseType = DatabaseType.SqlServer;
+                error = null;
+                return true;
+            default:
+                databaseType = default;
+                error = $"Unsupported database type '{databaseTypeText}' in DatabaseConfig.json.";
+                return false;
+        }
+    }
+
+    static private string BuildConnectionString(DatabaseCfg config, string password) {
+        var builder = new StringBuilder();
+        builder.Append("Host=").Append(config.Host).Append(';');
+        builder.Append("Port=").Append(config.Port).Append(';');
+        builder.Append("Database=").Append(config.Database).Append(';');
+        builder.Append("Username=").Append(config.User).Append(';');
+        builder.Append("Password=").Append(password).Append(';');
+
+        return builder.ToString();
+    }
+
     private void LoadConfigurationFile(string fileName) {
         View.Print("[Info] Loading configuration from JSON file: " + fileName);
-        if (Json.LoadConfiguration(fileName, out WorldCfg? WorldCfg)) {
+        if (ConfigJson.LoadConfiguration(fileName, out WorldCfg? WorldCfg)) {
             if (WorldCfg != null) {
                 Characteristics.Init(WorldCfg.Characteristics);
                 Simulation = new Simulation(new World(WorldCfg));
@@ -370,5 +479,101 @@ internal class CmdInterpreter {
             }
             View.Print("");
         }
+    }
+
+    private void World(string[] args) {
+        if (args.Length == 0) {
+            View.Print("WORLD command requires a subcommand.");
+            View.Print("Use: WORLD LIST | WORLD ADD <json-config-file> | WORLD LOAD <world-uid> | WORLD REMOVE <world-uid>");
+            return;
+        }
+
+        string subcommand = args[0].ToUpperInvariant();
+
+        switch (subcommand) {
+            case "LIST":
+                if (args.Length != 1) {
+                    View.Print("WORLD LIST does not accept additional arguments.");
+                    return;
+                }
+                WorldList();
+                break;
+
+            case "ADD":
+                if (args.Length != 2) {
+                    View.Print("Use: WORLD ADD <json-config-file>");
+                    return;
+                }
+                WorldAdd(args[1]);
+                break;
+
+            case "LOAD":
+                if (args.Length != 2) {
+                    View.Print("Use: WORLD LOAD <world-uid>");
+                    return;
+                }
+                WorldLoad(args[1]);
+                break;
+
+            case "REMOVE":
+                if (args.Length != 2) {
+                    View.Print("Use: WORLD REMOVE <world-uid>");
+                    return;
+                }
+                WorldRemove(args[1]);
+                break;
+
+            default:
+                View.Print($"Unknown WORLD subcommand: {args[0]}");
+                View.Print("Use: WORLD LIST | WORLD ADD <json-config-file> | WORLD LOAD <world-uid> | WORLD REMOVE <world-uid>");
+                break;
+        }
+    }
+
+    private void WorldList() {
+        if (Database == null) {
+            View.Print("[WORLD LIST] Database is not initialized.");
+            return;
+        }
+
+        if (!Database.ListWorlds(out List<DbWorldInfo> worlds, out string? error)) {
+            View.Print($"[WORLD LIST] Error: {error}");
+            return;
+        }
+
+        if (worlds.Count == 0) {
+            View.Print("[WORLD LIST] No worlds found in database.");
+            return;
+        }
+
+        View.Print("[WORLD LIST] Existing worlds:");
+        View.Print("id      uid             name                     space    x      y      z      mode");
+
+        foreach (DbWorldInfo worldInfo in worlds) {
+            View.Print(
+                $"{worldInfo.Id,-8}{worldInfo.Uid,-16}{worldInfo.Name,-25}{worldInfo.Space,-9}{worldInfo.X,-7}{worldInfo.Y,-7}{worldInfo.Z,-7}{worldInfo.Mode}");
+        }
+    }
+
+    private void WorldAdd(string jsonConfigFile) {
+        View.Print($"[WORLD ADD] Not implemented yet. Input file: {jsonConfigFile}");
+    }
+
+    private void WorldLoad(string worldUid) {
+        View.Print($"[WORLD LOAD] Not implemented yet. World UID: {worldUid}");
+    }
+
+    private void WorldRemove(string worldUid) {
+        if (Database == null) {
+            View.Print("[WORLD REMOVE] Database is not initialized.");
+            return;
+        }
+
+        if (!Database.RemoveWorld(worldUid, out string? error)) {
+            View.Print($"[WORLD REMOVE] Error: {error}");
+            return;
+        }
+
+        View.Print($"[WORLD REMOVE] World '{worldUid}' removed successfully.");
     }
 }

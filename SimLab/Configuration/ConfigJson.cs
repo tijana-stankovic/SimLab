@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace SimLab.Configuration;
 
-internal class Json {
+internal class ConfigJson {
 
     // Serializer options (make deserialize more flexible).
     // Also, fields marked as 'required' must be present in JSON (otherwise JsonException) and

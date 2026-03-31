@@ -6,9 +6,9 @@ internal static class DatabaseSelector {
             case DatabaseType.PostgreSql:
                 return new PostgreSql(connectionString);
             case DatabaseType.Oracle:
-                throw new NotSupportedException("Oracle database provider is not implemented yet.");
+                throw new NotSupportedException("Oracle database is not supported yet.");
             case DatabaseType.SqlServer:
-                throw new NotSupportedException("SQL Server database provider is not implemented yet.");
+                throw new NotSupportedException("SQL Server database is not supported yet.");
             default:
                 throw new ArgumentOutOfRangeException();
         }

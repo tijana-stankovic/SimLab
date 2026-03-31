@@ -22,7 +22,7 @@ internal class Controller {
     public void Run() {
         View.Print();
 
-        bool quit = false;
+        bool quit = Interpreter.QuitSignal;
         while (!quit) {
             View.PrintPrompt();
             Command cmd = Cli.ReadCommand();
