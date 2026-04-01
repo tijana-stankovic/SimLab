@@ -25,7 +25,7 @@ internal class View {
     /// Displays information about the SimLab application.
     /// </summary>
     static public void FullProgramInfo() {
-        string version = "0.1";
+        string version = "0.7";
         string projectName = "SimLab - Simulation Laboratory";
         string course = "Bachelor thesis";
         string author = "Tijana Stankovic";

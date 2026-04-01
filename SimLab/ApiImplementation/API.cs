@@ -1,5 +1,6 @@
-﻿using SimLabApi;
+using SimLabApi;
 using SimLab.Simulator;
+using SimLab.Configuration;
 using ApiPosition = SimLabApi.Position;
 using SimulatorPosition = SimLab.Simulator.Position;
 
@@ -144,23 +145,31 @@ internal class API(Simulation? sim) : ISimLabApi {
         return new ApiPosition(pos.X, pos.Y, pos.Z);
     }
 
-    public string[] GetPlugInMethodParameters(string simulationPhase) {
+    public string[] GetPlugInMethodParameters(PhaseName simulationPhase) {
         if (_sim == null)
             return [];
 
-        string[] methodParameters = simulationPhase.ToLower() switch {
-            "initialization" => _sim.InitializationParameters,
-            "precycle" => _sim.PreCycleParameters,
-            "processworld" => _sim.ProcessWorldParameters,
-            "update" => _sim.UpdateParameters,
-            "evaluation" => _sim.EvaluationParameters,
-            "reproduction" => _sim.ReproductionParameters,
-            "selection" => _sim.SelectionParameters,
-            "postcycle" => _sim.PostCycleParameters,
+        string[] methodParameters = simulationPhase switch {
+            PhaseName.Initialization => _sim.InitializationParameters,
+            PhaseName.PreCycle => _sim.PreCycleParameters,
+            PhaseName.ProcessWorld => _sim.ProcessWorldParameters,
+            PhaseName.Update => _sim.UpdateParameters,
+            PhaseName.Evaluation => _sim.EvaluationParameters,
+            PhaseName.Reproduction => _sim.ReproductionParameters,
+            PhaseName.Selection => _sim.SelectionParameters,
+            PhaseName.PostCycle => _sim.PostCycleParameters,
             _ => []
         };
 
         return methodParameters;
+    }
+
+    public string[] GetPlugInMethodParameters(string simulationPhase) {
+        if (!Phase.TryToValue(simulationPhase, out PhaseName phaseName)) {
+            return [];
+        }
+
+        return GetPlugInMethodParameters(phaseName);
     }
     
     // TODO: This is just a test method. Remove later.

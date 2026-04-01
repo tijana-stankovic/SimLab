@@ -1,4 +1,4 @@
-﻿namespace SimLabApi;
+namespace SimLabApi;
 
 /// <summary>
 /// This is the SimLab API - the main interface that the simulation engine exposes to plug-ins.
@@ -35,6 +35,7 @@ public interface ISimLabApi {
 
     long Cycle { get; }
 
+    public string[] GetPlugInMethodParameters(PhaseName simulationPhase);
     public string[] GetPlugInMethodParameters(string simulationPhase);
 
     // TODO: This is just a test method. Remove later.

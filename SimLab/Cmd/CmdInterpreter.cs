@@ -556,7 +556,35 @@ internal class CmdInterpreter {
     }
 
     private void WorldAdd(string jsonConfigFile) {
-        View.Print($"[WORLD ADD] Not implemented yet. Input file: {jsonConfigFile}");
+        if (Database == null) {
+            View.Print("[WORLD ADD] Database is not initialized.");
+            return;
+        }
+
+        if (!ConfigJson.LoadConfiguration(jsonConfigFile, out WorldCfg? worldCfg)) {
+            View.Print($"[WORLD ADD] Error loading configuration from '{jsonConfigFile}'.");
+            return;
+        }
+
+        if (worldCfg == null) {
+            View.Print($"[WORLD ADD] Configuration is empty in '{jsonConfigFile}'.");
+            return;
+        }
+
+        if (!Database.AddWorldDefinition(worldCfg, out int worldId, out string? worldUid, out string? error)) {
+            View.Print($"[WORLD ADD] Error: {error}");
+            return;
+        }
+
+        View.Print($"[WORLD ADD] World '{worldUid}' added successfully (id={worldId}).");
+
+        // TODO
+        // Keep simple for now: after successful add, load the same configuration as active in-memory world.
+        LoadConfigurationFile(jsonConfigFile);
+        if (Simulation != null) {
+            Simulation.World.Id = worldId;
+            Simulation.World.Uid = worldUid;
+        }
     }
 
     private void WorldLoad(string worldUid) {

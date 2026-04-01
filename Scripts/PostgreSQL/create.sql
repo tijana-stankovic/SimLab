@@ -15,6 +15,25 @@ CREATE TABLE world (
     )
 );
 
+-- Assign UID from generated world ID when UID is not provided.
+CREATE OR REPLACE FUNCTION trg_world_set_uid()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.uid IS NULL OR btrim(NEW.uid) = '' THEN
+        NEW.uid := NEW.id::text;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER bi_world_set_uid
+BEFORE INSERT OR UPDATE ON world
+FOR EACH ROW
+EXECUTE FUNCTION trg_world_set_uid();
+
 -- Enforce case-insensitive uniqueness for world UID while preserving original text
 CREATE UNIQUE INDEX ux_world_uid_ci ON world (upper(uid));
 
