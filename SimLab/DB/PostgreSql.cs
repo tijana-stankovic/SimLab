@@ -314,7 +314,7 @@ internal class PostgreSql(string connectionString) : IDatabase {
         }
     }
 
-    // TODO: Implement world definition load transaction
+    // Load full world definition from database by world UID.
     public bool LoadWorldDefinition(string worldUid, out int worldId, out WorldCfg? worldCfg, out string? error) {
         worldId = 0;
         worldCfg = null;
@@ -324,8 +324,239 @@ internal class PostgreSql(string connectionString) : IDatabase {
             return false;
         }
 
-        error = "LoadWorldDefinition is not implemented yet.";
-        return false;
+        if (string.IsNullOrWhiteSpace(worldUid)) {
+            error = "World UID is empty.";
+            return false;
+        }
+
+        try {
+            using var connection = DataSource!.OpenConnection();
+
+            string? loadedUid = null;
+            string? loadedName = null;
+            int loadedSpace = 0;
+            int dimX = 0;
+            int dimY = 0;
+            int dimZ = 0;
+            string? loadedMode = null;
+
+            using (var worldCommand = new NpgsqlCommand(@"
+                SELECT id, uid, name, space, x, y, z, mode
+                FROM world
+                WHERE upper(uid) = upper(@uid)", connection)) {
+                worldCommand.Parameters.AddWithValue("uid", worldUid.Trim());
+
+                using var worldReader = worldCommand.ExecuteReader();
+                if (!worldReader.Read()) {
+                    error = $"World with UID '{worldUid}' was not found.";
+                    return false;
+                }
+
+                worldId = worldReader.GetInt32(0);
+                loadedUid = worldReader.GetString(1);
+                loadedName = worldReader.GetString(2);
+                loadedSpace = worldReader.GetInt16(3);
+                dimX = worldReader.GetInt32(4);
+                dimY = worldReader.GetInt32(5);
+                dimZ = worldReader.GetInt32(6);
+                string modeCode = worldReader.GetString(7);
+                loadedMode = ModeCodeToText(modeCode);
+            }
+
+            if (loadedUid == null || loadedName == null || loadedMode == null) {
+                error = "World data is incomplete in database.";
+                return false;
+            }
+
+            var characteristicNames = new List<string>();
+            var characteristicIdByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var characteristicIdByOrd = new List<int>();
+
+            using (var characteristicCommand = new NpgsqlCommand(@"
+                SELECT id, name, ord
+                FROM characteristic
+                WHERE world = @world
+                ORDER BY ord", connection)) {
+                characteristicCommand.Parameters.AddWithValue("world", worldId);
+
+                using var characteristicReader = characteristicCommand.ExecuteReader();
+
+                int expectedOrd = 0;
+                while (characteristicReader.Read()) {
+                    int characteristicId = characteristicReader.GetInt32(0);
+                    string characteristicName = characteristicReader.GetString(1);
+                    int characteristicOrd = characteristicReader.GetInt32(2);
+
+                    if (characteristicOrd != expectedOrd) {
+                        error = $"Invalid characteristic order for world '{loadedUid}'. Expected ord={expectedOrd}, found ord={characteristicOrd}.";
+                        return false;
+                    }
+
+                    characteristicNames.Add(characteristicName);
+                    characteristicIdByName[characteristicName] = characteristicId;
+                    characteristicIdByOrd.Add(characteristicId);
+                    expectedOrd++;
+                }
+            }
+
+            MethodCfg? initialization = null;
+            MethodCfg? preCycle = null;
+            MethodCfg? processWorld = null;
+            MethodCfg? update = null;
+            MethodCfg? evaluation = null;
+            MethodCfg? reproduction = null;
+            MethodCfg? selection = null;
+            MethodCfg? postCycle = null;
+
+            var phases = new List<(int PhaseId, string Name, string Method)>();
+
+            using (var phaseCommand = new NpgsqlCommand(@"
+                SELECT id, name, method
+                FROM phase
+                WHERE world = @world
+                ORDER BY id", connection)) {
+                phaseCommand.Parameters.AddWithValue("world", worldId);
+
+                using var phaseReader = phaseCommand.ExecuteReader();
+                while (phaseReader.Read()) {
+                    phases.Add((
+                        phaseReader.GetInt32(0),
+                        phaseReader.GetString(1),
+                        phaseReader.GetString(2)));
+                }
+            }
+
+            foreach (var phaseRow in phases) {
+                if (!Phase.TryToValue(phaseRow.Name, out PhaseName phaseName)) {
+                    error = $"Unsupported phase name '{phaseRow.Name}' found in database.";
+                    return false;
+                }
+
+                string[] parameters = ReadPhaseParameters(connection, phaseRow.PhaseId, out string? parametersError);
+                if (parametersError != null) {
+                    error = parametersError;
+                    return false;
+                }
+
+                var methodCfg = new MethodCfg {
+                    Method = phaseRow.Method,
+                    Parameters = parameters
+                };
+
+                switch (phaseName) {
+                    case PhaseName.Initialization:
+                        if (initialization != null) { error = "Duplicate Initialization phase found in database."; return false; }
+                        initialization = methodCfg;
+                        break;
+                    case PhaseName.PreCycle:
+                        if (preCycle != null) { error = "Duplicate PreCycle phase found in database."; return false; }
+                        preCycle = methodCfg;
+                        break;
+                    case PhaseName.ProcessWorld:
+                        if (processWorld != null) { error = "Duplicate ProcessWorld phase found in database."; return false; }
+                        processWorld = methodCfg;
+                        break;
+                    case PhaseName.Update:
+                        if (update != null) { error = "Duplicate Update phase found in database."; return false; }
+                        update = methodCfg;
+                        break;
+                    case PhaseName.Evaluation:
+                        if (evaluation != null) { error = "Duplicate Evaluation phase found in database."; return false; }
+                        evaluation = methodCfg;
+                        break;
+                    case PhaseName.Reproduction:
+                        if (reproduction != null) { error = "Duplicate Reproduction phase found in database."; return false; }
+                        reproduction = methodCfg;
+                        break;
+                    case PhaseName.Selection:
+                        if (selection != null) { error = "Duplicate Selection phase found in database."; return false; }
+                        selection = methodCfg;
+                        break;
+                    case PhaseName.PostCycle:
+                        if (postCycle != null) { error = "Duplicate PostCycle phase found in database."; return false; }
+                        postCycle = methodCfg;
+                        break;
+                }
+            }
+
+            int[] dimensions = loadedSpace == 3 ? new int[] { dimX, dimY, dimZ } : new int[] { dimX, dimY };
+
+            worldCfg = new WorldCfg {
+                Uid = loadedUid,
+                Name = loadedName,
+                Space = loadedSpace,
+                Dimensions = dimensions,
+                Characteristics = characteristicNames.ToArray(),
+                Mode = loadedMode,
+                Initialization = initialization,
+                PreCycle = preCycle,
+                ProcessWorld = processWorld,
+                Update = update,
+                Evaluation = evaluation,
+                Reproduction = reproduction,
+                Selection = selection,
+                PostCycle = postCycle
+            };
+
+            Cache.SetWorld(worldId);
+            Cache.SetCharacteristicIdByName(characteristicIdByName);
+            Cache.SetCharacteristicIdByOrd(characteristicIdByOrd.ToArray());
+
+            error = null;
+            return true;
+        } catch (Exception ex) {
+            worldId = 0;
+            worldCfg = null;
+            error = ex.Message;
+            return false;
+        }
+    }
+    
+    // Convert mode code from database to text
+    private static string? ModeCodeToText(string? modeCode) {
+        if (string.IsNullOrWhiteSpace(modeCode)) {
+            return null;
+        }
+
+        switch (modeCode.Trim().ToUpperInvariant()) {
+            case "S":
+                return "SynchronousCA";
+            case "A":
+                return "Asynchronous";
+            default:
+                return null;
+        }
+    }
+    
+    // Load all parameters for the given phase ID
+    private static string[] ReadPhaseParameters(NpgsqlConnection connection, int phaseId, out string? error) {
+        error = null;
+        var parameters = new List<string>();
+
+        using var parameterCommand = new NpgsqlCommand(@"
+            SELECT ord, value
+            FROM phase_parameter
+            WHERE phase = @phase
+            ORDER BY ord", connection);
+        parameterCommand.Parameters.AddWithValue("phase", phaseId);
+
+        using var parameterReader = parameterCommand.ExecuteReader();
+
+        int expectedOrd = 0;
+        while (parameterReader.Read()) {
+            int parameterOrd = parameterReader.GetInt32(0);
+            string parameterValue = parameterReader.GetString(1);
+
+            if (parameterOrd != expectedOrd) {
+                error = $"Invalid phase_parameter order for phase id={phaseId}. Expected ord={expectedOrd}, found ord={parameterOrd}.";
+                return [];
+            }
+
+            parameters.Add(parameterValue);
+            expectedOrd++;
+        }
+
+        return parameters.ToArray();
     }
 
     // Remove world specified by world UID. 

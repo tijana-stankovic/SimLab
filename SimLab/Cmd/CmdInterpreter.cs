@@ -314,50 +314,56 @@ internal class CmdInterpreter {
         View.Print("[Info] Loading configuration from JSON file: " + fileName);
         if (ConfigJson.LoadConfiguration(fileName, out WorldCfg? WorldCfg)) {
             if (WorldCfg != null) {
-                Characteristics.Init(WorldCfg.Characteristics);
-                Simulation = new Simulation(new World(WorldCfg));
-                FrameBuffer = new FrameBuffer(Simulation.World);
-                Simulation.Mode = ParseModeOrDefault(WorldCfg.Mode, out bool invalidMode);
-                if (invalidMode) {
-                    View.Print($"[Warning] Unknown simulation mode '{WorldCfg.Mode}'. Using '{Simulation.Mode}'.");
-                }
-                View.Print("[Info] Configuration successfully loaded from JSON file.");
-                View.Print($"[Info] Simulation mode: {Simulation.Mode}");
-                if (WorldCfg.Initialization != null) {
-                    Simulation.InitializationMethod = GetMethod(WorldCfg.Initialization.Method);
-                    Simulation.InitializationParameters = WorldCfg.Initialization.Parameters;
-                }
-                if (WorldCfg.PreCycle != null) {
-                    Simulation.PreCycleMethod = GetMethod(WorldCfg.PreCycle.Method);
-                    Simulation.PreCycleParameters = WorldCfg.PreCycle.Parameters;
-                }
-                if (WorldCfg.ProcessWorld != null) {
-                    Simulation.ProcessWorldMethod = GetMethod(WorldCfg.ProcessWorld.Method);
-                    Simulation.ProcessWorldParameters = WorldCfg.ProcessWorld.Parameters;
-                }
-                if (WorldCfg.Update != null) {
-                    Simulation.UpdateMethod = GetMethod(WorldCfg.Update.Method);
-                    Simulation.UpdateParameters = WorldCfg.Update.Parameters;
-                }
-                if (WorldCfg.Evaluation != null) {
-                    Simulation.EvaluationMethod = GetMethod(WorldCfg.Evaluation.Method);
-                    Simulation.EvaluationParameters = WorldCfg.Evaluation.Parameters;
-                }
-                if (WorldCfg.Reproduction != null) {
-                    Simulation.ReproductionMethod = GetMethod(WorldCfg.Reproduction.Method);
-                    Simulation.ReproductionParameters = WorldCfg.Reproduction.Parameters;
-                }
-                if (WorldCfg.Selection != null) {
-                    Simulation.SelectionMethod = GetMethod(WorldCfg.Selection.Method);
-                    Simulation.SelectionParameters = WorldCfg.Selection.Parameters;
-                }
-                if (WorldCfg.PostCycle != null) {
-                    Simulation.PostCycleMethod = GetMethod(WorldCfg.PostCycle.Method);
-                    Simulation.PostCycleParameters = WorldCfg.PostCycle.Parameters;
-                }
+                ApplyWorldConfiguration(WorldCfg, "JSON file");
             }
         } else {
             View.Print("[Warning] No valid configuration loaded from JSON file. Running without simulation world.");
+        }
+    }
+
+    private void ApplyWorldConfiguration(WorldCfg worldCfg, string sourceDescription) {
+        Characteristics.Init(worldCfg.Characteristics);
+        Simulation = new Simulation(new World(worldCfg));
+        FrameBuffer = new FrameBuffer(Simulation.World);
+        Simulation.Mode = ParseModeOrDefault(worldCfg.Mode, out bool invalidMode);
+        if (invalidMode) {
+            View.Print($"[Warning] Unknown simulation mode '{worldCfg.Mode}'. Using '{Simulation.Mode}'.");
+        }
+
+        View.Print($"[Info] Configuration successfully loaded from {sourceDescription}.");
+        View.Print($"[Info] Simulation mode: {Simulation.Mode}");
+
+        if (worldCfg.Initialization != null) {
+            Simulation.InitializationMethod = GetMethod(worldCfg.Initialization.Method);
+            Simulation.InitializationParameters = worldCfg.Initialization.Parameters;
+        }
+        if (worldCfg.PreCycle != null) {
+            Simulation.PreCycleMethod = GetMethod(worldCfg.PreCycle.Method);
+            Simulation.PreCycleParameters = worldCfg.PreCycle.Parameters;
+        }
+        if (worldCfg.ProcessWorld != null) {
+            Simulation.ProcessWorldMethod = GetMethod(worldCfg.ProcessWorld.Method);
+            Simulation.ProcessWorldParameters = worldCfg.ProcessWorld.Parameters;
+        }
+        if (worldCfg.Update != null) {
+            Simulation.UpdateMethod = GetMethod(worldCfg.Update.Method);
+            Simulation.UpdateParameters = worldCfg.Update.Parameters;
+        }
+        if (worldCfg.Evaluation != null) {
+            Simulation.EvaluationMethod = GetMethod(worldCfg.Evaluation.Method);
+            Simulation.EvaluationParameters = worldCfg.Evaluation.Parameters;
+        }
+        if (worldCfg.Reproduction != null) {
+            Simulation.ReproductionMethod = GetMethod(worldCfg.Reproduction.Method);
+            Simulation.ReproductionParameters = worldCfg.Reproduction.Parameters;
+        }
+        if (worldCfg.Selection != null) {
+            Simulation.SelectionMethod = GetMethod(worldCfg.Selection.Method);
+            Simulation.SelectionParameters = worldCfg.Selection.Parameters;
+        }
+        if (worldCfg.PostCycle != null) {
+            Simulation.PostCycleMethod = GetMethod(worldCfg.PostCycle.Method);
+            Simulation.PostCycleParameters = worldCfg.PostCycle.Parameters;
         }
     }
 
@@ -578,9 +584,8 @@ internal class CmdInterpreter {
 
         View.Print($"[WORLD ADD] World '{worldUid}' added successfully (id={worldId}).");
 
-        // TODO
-        // Keep simple for now: after successful add, load the same configuration as active in-memory world.
-        LoadConfigurationFile(jsonConfigFile);
+        // Keep simple for now: after successful add, activate same world config in memory.
+        ApplyWorldConfiguration(worldCfg, "JSON file");
         if (Simulation != null) {
             Simulation.World.Id = worldId;
             Simulation.World.Uid = worldUid;
@@ -588,7 +593,28 @@ internal class CmdInterpreter {
     }
 
     private void WorldLoad(string worldUid) {
-        View.Print($"[WORLD LOAD] Not implemented yet. World UID: {worldUid}");
+        if (Database == null) {
+            View.Print("[WORLD LOAD] Database is not initialized.");
+            return;
+        }
+
+        if (!Database.LoadWorldDefinition(worldUid, out int worldId, out WorldCfg? worldCfg, out string? error)) {
+            View.Print($"[WORLD LOAD] Error: {error}");
+            return;
+        }
+
+        if (worldCfg == null) {
+            View.Print($"[WORLD LOAD] No world definition returned for UID '{worldUid}'.");
+            return;
+        }
+
+        ApplyWorldConfiguration(worldCfg, "database");
+        if (Simulation != null) {
+            Simulation.World.Id = worldId;
+            Simulation.World.Uid = worldCfg.Uid;
+        }
+
+        View.Print($"[WORLD LOAD] World '{worldCfg.Uid}' loaded successfully (id={worldId}).");
     }
 
     private void WorldRemove(string worldUid) {
