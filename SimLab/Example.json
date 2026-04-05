@@ -1,5 +1,5 @@
 {   
-    "name": "ExampleWorld",
+    "name": "First Example World",
     "space": 2,
     "dimensions": [100, "200"],
     "characteristics": ["type", "age", "status"],

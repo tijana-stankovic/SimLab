@@ -32,7 +32,7 @@ internal class CmdInterpreter {
         }
 
         if (args.Length != 0) {
-            LoadConfigurationFile(args[0]);
+            WorldAdd(args[0]);
         }
     }
 
@@ -310,6 +310,8 @@ internal class CmdInterpreter {
         return builder.ToString();
     }
 
+    /*
+    // load JSON configuration file into memory without DB insert.
     private void LoadConfigurationFile(string fileName) {
         View.Print("[Info] Loading configuration from JSON file: " + fileName);
         if (ConfigJson.LoadConfiguration(fileName, out WorldCfg? WorldCfg)) {
@@ -320,6 +322,7 @@ internal class CmdInterpreter {
             View.Print("[Warning] No valid configuration loaded from JSON file. Running without simulation world.");
         }
     }
+    */
 
     private void ApplyWorldConfiguration(WorldCfg worldCfg, string sourceDescription) {
         Characteristics.Init(worldCfg.Characteristics);
@@ -584,7 +587,7 @@ internal class CmdInterpreter {
 
         View.Print($"[WORLD ADD] World '{worldUid}' added successfully (id={worldId}).");
 
-        // Keep simple for now: after successful add, activate same world config in memory.
+        // after successful add, activate same world config in memory.
         ApplyWorldConfiguration(worldCfg, "JSON file");
         if (Simulation != null) {
             Simulation.World.Id = worldId;
@@ -628,6 +631,20 @@ internal class CmdInterpreter {
             return;
         }
 
+        bool removedActiveWorld =
+            Simulation != null &&
+            Simulation.World.Uid != null &&
+            string.Equals(Simulation.World.Uid.Trim(), worldUid.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        if (removedActiveWorld) {
+            Simulation = null;
+            FrameBuffer = null;
+        }
+
         View.Print($"[WORLD REMOVE] World '{worldUid}' removed successfully.");
+
+        if (removedActiveWorld) {
+            View.Print("[WORLD REMOVE] Removed world was active. Current in-memory simulation has been cleared.");
+        }
     }
 }

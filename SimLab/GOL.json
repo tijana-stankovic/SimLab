@@ -1,7 +1,8 @@
 {
-    "name": "GameOfLifeWorld",
+    "uid": "GOL10x10",
+    "name": "Game Of Life World 10x10",
     "space": 2,
-    "dimensions": [50, 50],
+    "dimensions": [10, 10],
     "characteristics": [],
     "mode": "SynchronousCA",
     "initialization": {
