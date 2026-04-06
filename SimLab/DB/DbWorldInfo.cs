@@ -9,4 +9,7 @@ internal class DbWorldInfo {
     public required int Y { get; init; }
     public required int Z { get; init; }
     public required char Mode { get; init; }
+    public long? LastCycle { get; init; }
+    public required long NextCellId { get; init; }
+    public long? LastViewedFrame { get; init; }
 }

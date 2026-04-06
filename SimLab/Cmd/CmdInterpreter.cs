@@ -556,11 +556,14 @@ internal class CmdInterpreter {
         }
 
         View.Print("[WORLD LIST] Existing worlds:");
-        View.Print("id      uid             name                     space    x      y      z      mode");
+        View.Print("id      uid             name                     space    x      y      z      mode  last_cycle  next_cell_id  last_viewed_frame");
 
         foreach (DbWorldInfo worldInfo in worlds) {
+            string lastCycleText = worldInfo.LastCycle.HasValue ? worldInfo.LastCycle.Value.ToString() : "null";
+            string lastViewedFrameText = worldInfo.LastViewedFrame.HasValue ? worldInfo.LastViewedFrame.Value.ToString() : "null";
+
             View.Print(
-                $"{worldInfo.Id,-8}{worldInfo.Uid,-16}{worldInfo.Name,-25}{worldInfo.Space,-9}{worldInfo.X,-7}{worldInfo.Y,-7}{worldInfo.Z,-7}{worldInfo.Mode}");
+                $"{worldInfo.Id,-8}{worldInfo.Uid,-16}{worldInfo.Name,-25}{worldInfo.Space,-9}{worldInfo.X,-7}{worldInfo.Y,-7}{worldInfo.Z,-7}{worldInfo.Mode,-6}{lastCycleText,-12}{worldInfo.NextCellId,-14}{lastViewedFrameText}");
         }
     }
 
@@ -592,6 +595,9 @@ internal class CmdInterpreter {
         if (Simulation != null) {
             Simulation.World.Id = worldId;
             Simulation.World.Uid = worldUid;
+            Simulation.World.LastCycle = null;
+            Simulation.World.NextCellId = 1;
+            Simulation.World.LastViewedFrame = null;
         }
     }
 
@@ -601,7 +607,14 @@ internal class CmdInterpreter {
             return;
         }
 
-        if (!Database.LoadWorldDefinition(worldUid, out int worldId, out WorldCfg? worldCfg, out string? error)) {
+        if (!Database.LoadWorldDefinition(
+            worldUid,
+            out int worldId,
+            out WorldCfg? worldCfg,
+            out long? lastCycle,
+            out long nextCellId,
+            out long? lastViewedFrame,
+            out string? error)) {
             View.Print($"[WORLD LOAD] Error: {error}");
             return;
         }
@@ -615,6 +628,9 @@ internal class CmdInterpreter {
         if (Simulation != null) {
             Simulation.World.Id = worldId;
             Simulation.World.Uid = worldCfg.Uid;
+            Simulation.World.LastCycle = lastCycle;
+            Simulation.World.NextCellId = nextCellId;
+            Simulation.World.LastViewedFrame = lastViewedFrame;
         }
 
         View.Print($"[WORLD LOAD] World '{worldCfg.Uid}' loaded successfully (id={worldId}).");

@@ -8,6 +8,9 @@ CREATE TABLE world (
     y           integer NOT NULL CHECK (y >= 0), -- 0 means unbounded dimension
     z           integer NOT NULL DEFAULT 0 CHECK (z >= 0), -- 0 means unbounded dimension (and 2D default)
     mode        char(1) NOT NULL CHECK (mode IN ('S', 'A')), -- S = SynchronousCA, A = Asynchronous
+    last_cycle  bigint CHECK (last_cycle IS NULL OR last_cycle >= 0), -- null = simulation not initialized yet
+    next_cell_id bigint NOT NULL DEFAULT 1 CHECK (next_cell_id >= 1), -- next value for system _id assignment
+    last_viewed_frame bigint CHECK (last_viewed_frame IS NULL OR last_viewed_frame >= 0), -- null = visualization not opened yet
     created_at  timestamptz NOT NULL DEFAULT now(),
     CHECK (
         (space = 2 AND z = 0) OR

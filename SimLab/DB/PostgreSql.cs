@@ -98,13 +98,16 @@ internal class PostgreSql(string connectionString) : IDatabase {
         try {
             using var connection = DataSource!.OpenConnection();
             using var command = new NpgsqlCommand(@"
-                SELECT id, uid, name, space, x, y, z, mode
+                SELECT id, uid, name, space, x, y, z, mode, last_cycle, next_cell_id, last_viewed_frame
                 FROM world
                 ORDER BY id", connection);
             using var reader = command.ExecuteReader();
 
             while (reader.Read()) {
                 string modeText = reader.GetString(7);
+                long? lastCycle = reader.IsDBNull(8) ? null : reader.GetInt64(8);
+                long nextCellId = reader.GetInt64(9);
+                long? lastViewedFrame = reader.IsDBNull(10) ? null : reader.GetInt64(10);
 
                 worlds.Add(new DbWorldInfo {
                     Id = reader.GetInt32(0),
@@ -114,7 +117,10 @@ internal class PostgreSql(string connectionString) : IDatabase {
                     X = reader.GetInt32(4),
                     Y = reader.GetInt32(5),
                     Z = reader.GetInt32(6),
-                    Mode = modeText.Length > 0 ? modeText[0] : '?'
+                    Mode = modeText.Length > 0 ? modeText[0] : '?',
+                    LastCycle = lastCycle,
+                    NextCellId = nextCellId,
+                    LastViewedFrame = lastViewedFrame
                 });
             }
 
@@ -196,8 +202,8 @@ internal class PostgreSql(string connectionString) : IDatabase {
                 }
 
                 using (var insertWorldCommand = new NpgsqlCommand(@"
-                    INSERT INTO world (uid, name, space, x, y, z, mode)
-                    VALUES (@uid, @name, @space, @x, @y, @z, @mode)
+                    INSERT INTO world (uid, name, space, x, y, z, mode, last_cycle, next_cell_id, last_viewed_frame)
+                    VALUES (@uid, @name, @space, @x, @y, @z, @mode, @last_cycle, @next_cell_id, @last_viewed_frame)
                     RETURNING id, uid", connection, transaction)) {
                     insertWorldCommand.Parameters.AddWithValue("uid", requestedUid ?? "");
                     insertWorldCommand.Parameters.AddWithValue("name", worldCfg.Name);
@@ -206,6 +212,9 @@ internal class PostgreSql(string connectionString) : IDatabase {
                     insertWorldCommand.Parameters.AddWithValue("y", dimY);
                     insertWorldCommand.Parameters.AddWithValue("z", dimZ);
                     insertWorldCommand.Parameters.AddWithValue("mode", mode.ToString());
+                    insertWorldCommand.Parameters.AddWithValue("last_cycle", NpgsqlTypes.NpgsqlDbType.Bigint, DBNull.Value);
+                    insertWorldCommand.Parameters.AddWithValue("next_cell_id", 1L);
+                    insertWorldCommand.Parameters.AddWithValue("last_viewed_frame", NpgsqlTypes.NpgsqlDbType.Bigint, DBNull.Value);
 
                     using var worldReader = insertWorldCommand.ExecuteReader();
                     if (!worldReader.Read()) {
@@ -315,9 +324,19 @@ internal class PostgreSql(string connectionString) : IDatabase {
     }
 
     // Load full world definition from database by world UID.
-    public bool LoadWorldDefinition(string worldUid, out int worldId, out WorldCfg? worldCfg, out string? error) {
+    public bool LoadWorldDefinition(
+        string worldUid,
+        out int worldId,
+        out WorldCfg? worldCfg,
+        out long? lastCycle,
+        out long nextCellId,
+        out long? lastViewedFrame,
+        out string? error) {
         worldId = 0;
         worldCfg = null;
+        lastCycle = null;
+        nextCellId = 1;
+        lastViewedFrame = null;
 
         if (!IsConnected) {
             error = "Database is not connected.";
@@ -341,7 +360,7 @@ internal class PostgreSql(string connectionString) : IDatabase {
             string? loadedMode = null;
 
             using (var worldCommand = new NpgsqlCommand(@"
-                SELECT id, uid, name, space, x, y, z, mode
+                SELECT id, uid, name, space, x, y, z, mode, last_cycle, next_cell_id, last_viewed_frame
                 FROM world
                 WHERE upper(uid) = upper(@uid)", connection)) {
                 worldCommand.Parameters.AddWithValue("uid", worldUid.Trim());
@@ -361,6 +380,9 @@ internal class PostgreSql(string connectionString) : IDatabase {
                 dimZ = worldReader.GetInt32(6);
                 string modeCode = worldReader.GetString(7);
                 loadedMode = ModeCodeToText(modeCode);
+                lastCycle = worldReader.IsDBNull(8) ? null : worldReader.GetInt64(8);
+                nextCellId = worldReader.GetInt64(9);
+                lastViewedFrame = worldReader.IsDBNull(10) ? null : worldReader.GetInt64(10);
             }
 
             if (loadedUid == null || loadedName == null || loadedMode == null) {
@@ -507,6 +529,9 @@ internal class PostgreSql(string connectionString) : IDatabase {
         } catch (Exception ex) {
             worldId = 0;
             worldCfg = null;
+            lastCycle = null;
+            nextCellId = 1;
+            lastViewedFrame = null;
             error = ex.Message;
             return false;
         }
