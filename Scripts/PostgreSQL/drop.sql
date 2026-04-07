@@ -1,4 +1,7 @@
 -- Drop tables (indexes are dropped automatically with their tables)
+DROP TABLE IF EXISTS simunit_data;
+DROP TABLE IF EXISTS simunit;
+DROP TABLE IF EXISTS cycle;
 DROP TABLE IF EXISTS phase_parameter;
 DROP TABLE IF EXISTS phase;
 DROP TABLE IF EXISTS characteristic;

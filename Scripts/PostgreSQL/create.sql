@@ -81,3 +81,39 @@ CREATE TABLE phase_parameter (
     value       text NOT NULL,
     PRIMARY KEY (phase, ord)
 );
+
+-- Create cycle table (one row per saved simulation cycle for a world)
+CREATE TABLE cycle (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    world           integer NOT NULL REFERENCES world(id) ON DELETE CASCADE,
+    cycle           bigint NOT NULL CHECK (cycle >= 0), -- 0 = after initialization
+    simunit_count   bigint NOT NULL DEFAULT 0 CHECK (simunit_count >= 0),
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT ux_cycle_world_cycle UNIQUE (world, cycle)
+);
+
+CREATE INDEX ix_cycle_world ON cycle (world);
+
+-- Create simunit table (cells/simulation units stored for one cycle)
+CREATE TABLE simunit (
+    id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle       bigint NOT NULL REFERENCES cycle(id) ON DELETE CASCADE,
+    simunit_id  bigint NOT NULL CHECK (simunit_id >= 1),
+    x           integer NOT NULL,
+    y           integer NOT NULL,
+    z           integer NOT NULL DEFAULT 0,
+    CONSTRAINT ux_simunit_cycle_simunit_id UNIQUE (cycle, simunit_id),
+    CONSTRAINT ux_simunit_cycle_position UNIQUE (cycle, x, y, z)
+);
+
+CREATE INDEX ix_simunit_cycle ON simunit (cycle);
+
+-- Create simunit_data table (characteristic values for each simunit)
+CREATE TABLE simunit_data (
+    simunit         bigint NOT NULL REFERENCES simunit(id) ON DELETE CASCADE,
+    characteristic  integer NOT NULL REFERENCES characteristic(id) ON DELETE CASCADE,
+    value           real NOT NULL,
+    PRIMARY KEY (simunit, characteristic)
+);
+
+CREATE INDEX ix_simunit_data_characteristic ON simunit_data (characteristic);
