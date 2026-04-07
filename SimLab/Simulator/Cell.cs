@@ -108,6 +108,10 @@ internal class Cell : ICell{
         Id = id;
     }
 
+    internal long GetId() {
+        return Id;
+    }
+
     private static bool IsSystemPropertyName(string name) {
         return name.StartsWith('_');
     }

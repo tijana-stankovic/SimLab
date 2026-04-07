@@ -178,6 +178,15 @@ internal class Simulation {
         return ReadBuffer.Select(pair => new CellHandle(pair.Key, pair.Value));
     }
 
+    public int GetCellCount() {
+        return ReadBuffer.Count;
+    }
+
+    // this method provides direct and fast access to the cell data without creating CellHandle objects
+    public IEnumerable<KeyValuePair<Position, Cell>> GetAllCellsDirect() {
+        return ReadBuffer;
+    }
+
     public IEnumerable<Position> GetNeighborPositions(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
         return World.Space == 2
             ? GetNeighborPositions2D(pos, type)

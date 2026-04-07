@@ -633,8 +633,77 @@ internal class PostgreSql(string connectionString) : IDatabase {
             return false;
         }
 
-        error = "SaveCurrentState is not implemented yet.";
-        return false;
+        int? worldIdOrNull = simulation.World.Id ?? Cache.WorldId;
+        if (!worldIdOrNull.HasValue) {
+            error = "Active world ID is not available. Load or add a world before saving state.";
+            return false;
+        }
+
+        int worldId = worldIdOrNull.Value;
+        long cycleNumber = simulation.Cycle;
+
+        if (cycleNumber < 0) {
+            error = $"Invalid cycle value '{cycleNumber}'.";
+            return false;
+        }
+
+        long simunitCount = simulation.GetCellCount();
+
+        try {
+            using var connection = DataSource!.OpenConnection();
+            using var transaction = connection.BeginTransaction();
+
+            try {
+                long cycleId;
+
+                using (var insertCycleCommand = new NpgsqlCommand(@"
+                    INSERT INTO cycle (world, cycle, simunit_count)
+                    VALUES (@world, @cycle, @simunit_count)
+                    RETURNING id", connection, transaction)) {
+                    insertCycleCommand.Parameters.AddWithValue("world", worldId);
+                    insertCycleCommand.Parameters.AddWithValue("cycle", cycleNumber);
+                    insertCycleCommand.Parameters.AddWithValue("simunit_count", simunitCount);
+
+                    object? cycleIdObj = insertCycleCommand.ExecuteScalar();
+                    if (cycleIdObj == null) {
+                        throw new Exception("Cycle insert failed: no row returned.");
+                    }
+
+                    cycleId = Convert.ToInt64(cycleIdObj);
+                }
+
+                using (var insertSimunitCommand = new NpgsqlCommand(@"
+                    INSERT INTO simunit (cycle, simunit_id, x, y, z)
+                    VALUES (@cycle, @simunit_id, @x, @y, @z)", connection, transaction)) {
+                    var cycleParameter = insertSimunitCommand.Parameters.Add("cycle", NpgsqlTypes.NpgsqlDbType.Bigint);
+                    var simunitIdParameter = insertSimunitCommand.Parameters.Add("simunit_id", NpgsqlTypes.NpgsqlDbType.Bigint);
+                    var xParameter = insertSimunitCommand.Parameters.Add("x", NpgsqlTypes.NpgsqlDbType.Integer);
+                    var yParameter = insertSimunitCommand.Parameters.Add("y", NpgsqlTypes.NpgsqlDbType.Integer);
+                    var zParameter = insertSimunitCommand.Parameters.Add("z", NpgsqlTypes.NpgsqlDbType.Integer);
+
+                    cycleParameter.Value = cycleId;
+
+                    foreach (var cellEntry in simulation.GetAllCellsDirect()) {
+                        simunitIdParameter.Value = cellEntry.Value.GetId();
+                        xParameter.Value = cellEntry.Key.X;
+                        yParameter.Value = cellEntry.Key.Y;
+                        zParameter.Value = cellEntry.Key.Z;
+                        insertSimunitCommand.ExecuteNonQuery();
+                    }
+                }
+
+                transaction.Commit();
+                error = null;
+                return true;
+            } catch (Exception ex) {
+                transaction.Rollback();
+                error = ex.Message;
+                return false;
+            }
+        } catch (Exception ex) {
+            error = ex.Message;
+            return false;
+        }
     }
 
     // TODO: Implement LoadState method to load simulation state from the database.
