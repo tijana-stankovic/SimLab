@@ -377,11 +377,20 @@ internal class CmdInterpreter {
         }
 
         try {
+            int startFrameIndex = FrameBuffer.GetStartFrameIndex();
             int frameIndex = Visualizer.Show(FrameBuffer);
             if (frameIndex == 0) {
                 View.Print($"[Show] Closed visualization on the initial cells position.");
             } else if (frameIndex > 0) {
                 View.Print($"[Show] Closed visualization on frame {frameIndex}/{FrameBuffer.Count - 1}.");
+            }
+
+            if (frameIndex >= 0 && frameIndex != startFrameIndex && Database != null && Simulation != null && Simulation.World.Id.HasValue) {
+                if (Database.UpdateWorldLastViewedFrame(Simulation.World.Id.Value, frameIndex, out string? updateError)) {
+                    Simulation.World.LastViewedFrame = frameIndex;
+                } else {
+                    View.Print($"[Show] Failed to update last viewed frame in database: {updateError}");
+                }
             }
         } catch (Exception ex) {
             View.Print($"[Show] Visualization error: {ex.Message}");
@@ -413,6 +422,11 @@ internal class CmdInterpreter {
             }
             sim.EndCycle();
             FrameBuffer?.Capture(sim);
+            if (Database != null) {
+                if (!Database.SaveCurrentState(sim, out string? saveError)) {
+                    View.Print($"[TestSim] Failed to save cycle {sim.Cycle} to database: {saveError}");
+                }
+            }
             PrintCellCharacteristics(sim, "Initial characteristics of all cells:");
         } else {
             PrintCellCharacteristics(sim, "Current characteristics of all cells:");
@@ -469,6 +483,11 @@ internal class CmdInterpreter {
             ExecuteIfNotNull(sim.PostCycleMethod);
             sim.EndCycle();
             FrameBuffer?.Capture(sim);
+            if (Database != null) {
+                if (!Database.SaveCurrentState(sim, out string? saveError)) {
+                    View.Print($"[TestSim] Failed to save cycle {sim.Cycle} to database: {saveError}");
+                }
+            }
 
             PrintCellCharacteristics(sim, "Characteristics of all cells after cycle " + sim.Cycle + ":");
         }

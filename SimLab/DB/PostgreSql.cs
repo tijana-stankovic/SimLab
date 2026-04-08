@@ -626,7 +626,47 @@ internal class PostgreSql(string connectionString) : IDatabase {
         }
     }
 
-    // TODO: Implement SaveCurrentState method to save simulation state to the database.
+    public bool UpdateWorldLastViewedFrame(int worldId, long lastViewedFrame, out string? error) {
+        if (!IsConnected) {
+            error = "Database is not connected.";
+            return false;
+        }
+
+        if (worldId <= 0) {
+            error = $"Invalid world ID '{worldId}'.";
+            return false;
+        }
+
+        if (lastViewedFrame < 0) {
+            error = $"Invalid last viewed frame '{lastViewedFrame}'.";
+            return false;
+        }
+
+        try {
+            using var connection = DataSource!.OpenConnection();
+            using var command = new NpgsqlCommand(@"
+                UPDATE world
+                SET last_viewed_frame = @last_viewed_frame
+                WHERE id = @world_id", connection);
+
+            command.Parameters.AddWithValue("last_viewed_frame", lastViewedFrame);
+            command.Parameters.AddWithValue("world_id", worldId);
+
+            int affectedRows = command.ExecuteNonQuery();
+            if (affectedRows != 1) {
+                error = $"World with ID '{worldId}' was not found.";
+                return false;
+            }
+
+            error = null;
+            return true;
+        } catch (Exception ex) {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    // Save current full simulation state to the database.
     public bool SaveCurrentState(Simulation simulation, out string? error) {
         if (!IsConnected) {
             error = "Database is not connected.";
@@ -641,6 +681,7 @@ internal class PostgreSql(string connectionString) : IDatabase {
 
         int worldId = worldIdOrNull.Value;
         long cycleNumber = simulation.Cycle;
+        long nextCellId = simulation.GetNextCellId();
 
         if (cycleNumber < 0) {
             error = $"Invalid cycle value '{cycleNumber}'.";
@@ -648,6 +689,17 @@ internal class PostgreSql(string connectionString) : IDatabase {
         }
 
         long simunitCount = simulation.GetCellCount();
+        int characteristicCount = Characteristics.Count;
+        int[] characteristicIdByOrd = new int[characteristicCount];
+
+        for (int i = 0; i < characteristicCount; i++) {
+            if (!Cache.TryGetCharacteristicId(i, out int characteristicId)) {
+                error = $"Missing characteristic DB mapping for ord={i}. Load or add world definition before saving state.";
+                return false;
+            }
+
+            characteristicIdByOrd[i] = characteristicId;
+        }
 
         try {
             using var connection = DataSource!.OpenConnection();
@@ -674,12 +726,22 @@ internal class PostgreSql(string connectionString) : IDatabase {
 
                 using (var insertSimunitCommand = new NpgsqlCommand(@"
                     INSERT INTO simunit (cycle, simunit_id, x, y, z)
-                    VALUES (@cycle, @simunit_id, @x, @y, @z)", connection, transaction)) {
+                    VALUES (@cycle, @simunit_id, @x, @y, @z)
+                    RETURNING id", connection, transaction)) {
+
+                    using var insertSimunitDataCommand = new NpgsqlCommand(@"
+                        INSERT INTO simunit_data (simunit, characteristic, value)
+                        VALUES (@simunit, @characteristic, @value)", connection, transaction);
+
                     var cycleParameter = insertSimunitCommand.Parameters.Add("cycle", NpgsqlTypes.NpgsqlDbType.Bigint);
                     var simunitIdParameter = insertSimunitCommand.Parameters.Add("simunit_id", NpgsqlTypes.NpgsqlDbType.Bigint);
                     var xParameter = insertSimunitCommand.Parameters.Add("x", NpgsqlTypes.NpgsqlDbType.Integer);
                     var yParameter = insertSimunitCommand.Parameters.Add("y", NpgsqlTypes.NpgsqlDbType.Integer);
                     var zParameter = insertSimunitCommand.Parameters.Add("z", NpgsqlTypes.NpgsqlDbType.Integer);
+
+                    var simunitFkParameter = insertSimunitDataCommand.Parameters.Add("simunit", NpgsqlTypes.NpgsqlDbType.Bigint);
+                    var characteristicFkParameter = insertSimunitDataCommand.Parameters.Add("characteristic", NpgsqlTypes.NpgsqlDbType.Integer);
+                    var valueParameter = insertSimunitDataCommand.Parameters.Add("value", NpgsqlTypes.NpgsqlDbType.Real);
 
                     cycleParameter.Value = cycleId;
 
@@ -688,11 +750,42 @@ internal class PostgreSql(string connectionString) : IDatabase {
                         xParameter.Value = cellEntry.Key.X;
                         yParameter.Value = cellEntry.Key.Y;
                         zParameter.Value = cellEntry.Key.Z;
-                        insertSimunitCommand.ExecuteNonQuery();
+
+                        object? simunitRowIdObj = insertSimunitCommand.ExecuteScalar();
+                        if (simunitRowIdObj == null) {
+                            throw new Exception("Simunit insert failed: no row returned.");
+                        }
+
+                        long simunitRowId = Convert.ToInt64(simunitRowIdObj);
+                        simunitFkParameter.Value = simunitRowId;
+
+                        for (int characteristicOrd = 0; characteristicOrd < characteristicCount; characteristicOrd++) {
+                            characteristicFkParameter.Value = characteristicIdByOrd[characteristicOrd];
+                            valueParameter.Value = cellEntry.Value[characteristicOrd];
+                            insertSimunitDataCommand.ExecuteNonQuery();
+                        }
+                    }
+                }
+
+                using (var updateWorldCommand = new NpgsqlCommand(@"
+                    UPDATE world
+                    SET last_cycle = @last_cycle,
+                        next_cell_id = @next_cell_id
+                    WHERE id = @world_id", connection, transaction)) {
+
+                    updateWorldCommand.Parameters.AddWithValue("last_cycle", cycleNumber);
+                    updateWorldCommand.Parameters.AddWithValue("next_cell_id", nextCellId);
+                    updateWorldCommand.Parameters.AddWithValue("world_id", worldId);
+
+                    int affectedRows = updateWorldCommand.ExecuteNonQuery();
+                    if (affectedRows != 1) {
+                        throw new Exception($"World update failed for id={worldId}.");
                     }
                 }
 
                 transaction.Commit();
+                simulation.World.LastCycle = cycleNumber;
+                simulation.World.NextCellId = nextCellId;
                 error = null;
                 return true;
             } catch (Exception ex) {

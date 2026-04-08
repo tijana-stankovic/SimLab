@@ -187,6 +187,10 @@ internal class Simulation {
         return ReadBuffer;
     }
 
+    public long GetNextCellId() {
+        return _nextCellId;
+    }
+
     public IEnumerable<Position> GetNeighborPositions(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
         return World.Space == 2
             ? GetNeighborPositions2D(pos, type)
