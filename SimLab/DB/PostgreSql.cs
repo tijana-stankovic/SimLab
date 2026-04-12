@@ -1,6 +1,7 @@
 using Npgsql;
 using SimLab.Configuration;
 using SimLab.Simulator;
+using SimulatorPosition = SimLab.Simulator.Position;
 using SimLabApi;
 
 namespace SimLab.DB;
@@ -666,7 +667,7 @@ internal class PostgreSql(string connectionString) : IDatabase {
         }
     }
 
-    // Save current full simulation state to the database.
+    // Save current simulation state to the database.
     public bool SaveCurrentState(Simulation simulation, out string? error) {
         if (!IsConnected) {
             error = "Database is not connected.";
@@ -799,14 +800,142 @@ internal class PostgreSql(string connectionString) : IDatabase {
         }
     }
 
-    // TODO: Implement LoadState method to load simulation state from the database.
-    public bool LoadState(long stateId, Simulation simulation, out string? error) {
+    // Get cycle ID based on world ID and cycle number.
+    private static bool GetCycleId(
+        NpgsqlConnection connection,
+        int worldId,
+        long cycleNumber,
+        out long cycleId,
+        out string? error) {
+
+        using var command = new NpgsqlCommand(@"
+            SELECT id
+            FROM cycle
+            WHERE world = @world AND cycle = @cycle", connection);
+
+        command.Parameters.AddWithValue("world", worldId);
+        command.Parameters.AddWithValue("cycle", cycleNumber);
+
+        object? cycleIdObj = command.ExecuteScalar();
+        if (cycleIdObj == null) {
+            cycleId = 0;
+            error = $"State for world id={worldId}, cycle={cycleNumber} was not found.";
+            return false;
+        }
+
+        cycleId = Convert.ToInt64(cycleIdObj);
+        error = null;
+        return true;
+    }
+
+    // Load one simulation state for the specified world and cycle number.
+    public bool LoadState(int worldId, long cycleNumber, Simulation simulation, out string? error) {
         if (!IsConnected) {
             error = "Database is not connected.";
             return false;
         }
 
-        error = "LoadState is not implemented yet.";
-        return false;
+        if (worldId <= 0) {
+            error = $"Invalid world ID '{worldId}'.";
+            return false;
+        }
+
+        if (cycleNumber < 0) {
+            error = $"Invalid cycle number '{cycleNumber}'.";
+            return false;
+        }
+
+        try {
+            using var connection = DataSource!.OpenConnection();
+            if (!GetCycleId(connection, worldId, cycleNumber, out long cycleId, out string? cycleError)) {
+                error = cycleError;
+                return false;
+            }
+
+            if (!Cache.WorldId.HasValue || Cache.WorldId.Value != worldId) {
+                error = "World definition cache is not ready for this world. Load world definition before loading state.";
+                return false;
+            }
+
+            if (Cache.CharacteristicIdByOrd.Length != Characteristics.Count) {
+                error = "Characteristic cache is not consistent with loaded world definition.";
+                return false;
+            }
+
+            long nextCellId = simulation.World.NextCellId;
+
+            var characteristicOrdById = new Dictionary<int, int>();
+            for (int ord = 0; ord < Cache.CharacteristicIdByOrd.Length; ord++) {
+                characteristicOrdById[Cache.CharacteristicIdByOrd[ord]] = ord;
+            }
+
+            var cellBySimunitRowId = new Dictionary<long, CellHandle>();
+            var cells = new List<CellHandle>();
+
+            using (var simunitCommand = new NpgsqlCommand(@"
+                SELECT id, simunit_id, x, y, z
+                FROM simunit
+                WHERE cycle = @cycle_id
+                ORDER BY id", connection)) {
+                simunitCommand.Parameters.AddWithValue("cycle_id", cycleId);
+
+                using var simunitReader = simunitCommand.ExecuteReader();
+                while (simunitReader.Read()) {
+                    long simunitRowId = simunitReader.GetInt64(0);
+                    long simunitId = simunitReader.GetInt64(1);
+                    int x = simunitReader.GetInt32(2);
+                    int y = simunitReader.GetInt32(3);
+                    int z = simunitReader.GetInt32(4);
+
+                    var cell = new Cell();
+                    cell.SetId(simunitId);
+
+                    var cellHandle = new CellHandle(new SimulatorPosition(x, y, z), cell);
+                    cellBySimunitRowId[simunitRowId] = cellHandle;
+                    cells.Add(cellHandle);
+                }
+            }
+
+            using (var simunitDataCommand = new NpgsqlCommand(@"
+                SELECT sd.simunit, sd.characteristic, sd.value
+                FROM simunit_data sd
+                INNER JOIN simunit s ON s.id = sd.simunit
+                WHERE s.cycle = @cycle_id
+                ORDER BY sd.simunit", connection)) {
+                simunitDataCommand.Parameters.AddWithValue("cycle_id", cycleId);
+
+                using var simunitDataReader = simunitDataCommand.ExecuteReader();
+                while (simunitDataReader.Read()) {
+                    long simunitRowId = simunitDataReader.GetInt64(0);
+                    int characteristicId = simunitDataReader.GetInt32(1);
+                    float characteristicValue = simunitDataReader.GetFloat(2);
+
+                    if (!cellBySimunitRowId.TryGetValue(simunitRowId, out CellHandle? cellHandle)) {
+                        error = $"Unknown simunit row id '{simunitRowId}' while loading state.";
+                        return false;
+                    }
+
+                    if (!characteristicOrdById.TryGetValue(characteristicId, out int characteristicOrd)) {
+                        error = $"Unknown characteristic id '{characteristicId}' while loading state.";
+                        return false;
+                    }
+
+                    cellHandle.Cell[characteristicOrd] = characteristicValue;
+                }
+            }
+
+            if (!simulation.SetCurrentState(cycleNumber, nextCellId, cells, out string? setStateError)) {
+                error = setStateError;
+                return false;
+            }
+
+            simulation.World.LastCycle = cycleNumber;
+            simulation.World.NextCellId = nextCellId;
+            error = null;
+            return true;
+        } catch (Exception ex) {
+            error = ex.Message;
+            return false;
+        }
     }
 }

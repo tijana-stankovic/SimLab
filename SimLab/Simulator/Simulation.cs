@@ -191,6 +191,36 @@ internal class Simulation {
         return _nextCellId;
     }
 
+    public bool SetCurrentState(long cycle, long nextCellId, IEnumerable<CellHandle> cells, out string? error) {
+        ClearCurrentCell();
+        _cellsCurrent.Clear();
+        _cellsNext.Clear();
+
+        foreach (CellHandle cellHandle in cells) {
+            long cellId = cellHandle.Cell.GetId();
+            Cell cell = new();
+            cell.SetId(cellId);
+
+            try {
+                for (int i = 0; i < Characteristics.Count; i++) {
+                    cell[i] = cellHandle.Cell[i];
+                }
+            } catch (Exception ex) {
+                error = $"Invalid characteristic values for cell at {cellHandle.Position}: {ex.Message}";
+                return false;
+            }
+
+            _cellsCurrent[cellHandle.Position] = cell;
+        }
+
+        Cycle = cycle;
+        _nextCellId = nextCellId;
+        IsRunning = true;
+
+        error = null;
+        return true;
+    }
+
     public IEnumerable<Position> GetNeighborPositions(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
         return World.Space == 2
             ? GetNeighborPositions2D(pos, type)

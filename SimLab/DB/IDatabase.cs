@@ -22,5 +22,5 @@ internal interface IDatabase {
     bool RemoveWorld(string worldUid, out string? error);
     bool UpdateWorldLastViewedFrame(int worldId, long lastViewedFrame, out string? error);
     bool SaveCurrentState(Simulation simulation, out string? error);
-    bool LoadState(long stateId, Simulation simulation, out string? error);
+    bool LoadState(int worldId, long cycleNumber, Simulation simulation, out string? error);
 }

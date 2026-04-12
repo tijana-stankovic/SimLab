@@ -650,9 +650,60 @@ internal class CmdInterpreter {
             Simulation.World.LastCycle = lastCycle;
             Simulation.World.NextCellId = nextCellId;
             Simulation.World.LastViewedFrame = lastViewedFrame;
+
+            if (lastCycle != null) {
+                long cycleNumber = (long)lastCycle;
+                if (!Database.LoadState(worldId, cycleNumber, Simulation, out string? loadStateError)) {
+                    View.Print($"[WORLD LOAD] World definition loaded, but failed to restore last state: {loadStateError}");
+                    return;
+                }
+
+                if (!BuildFrameBufferFromDatabaseHistory(worldId, cycleNumber, lastViewedFrame, nextCellId, worldCfg, out string? loadHistoryError)) {
+                    FrameBuffer = null;
+                    View.Print($"[WORLD LOAD] Warning: last state restored, but failed to build visualization frame history: {loadHistoryError}");
+                }
+            }
         }
 
         View.Print($"[WORLD LOAD] World '{worldCfg.Uid}' loaded successfully (id={worldId}).");
+    }
+
+    // load all saved cycles (0..lastCycle) into memory and build full frame buffer
+    private bool BuildFrameBufferFromDatabaseHistory(int worldId, long lastCycle, long? lastViewedFrame, long nextCellId, WorldCfg worldCfg, out string? error) {
+        if (Database == null) {
+            error = "Database is not initialized.";
+            return false;
+        }
+
+        // use a separate helper simulation object so visualization history loading
+        // does not affect the active/current simulation state
+        var helperSimulation = new Simulation(new World(worldCfg));
+        helperSimulation.World.Id = worldId;
+        helperSimulation.World.Uid = worldCfg.Uid;
+        helperSimulation.World.NextCellId = nextCellId;
+        helperSimulation.Mode = ParseModeOrDefault(worldCfg.Mode, out _);
+
+        FrameBuffer = new FrameBuffer(helperSimulation.World);
+
+        for (long cycleNumber = 0; cycleNumber <= lastCycle; cycleNumber++) {
+            if (!Database.LoadState(worldId, cycleNumber, helperSimulation, out string? loadStateError)) {
+                error = $"Failed to load cycle {cycleNumber}: {loadStateError}";
+                return false;
+            }
+
+            FrameBuffer.Capture(helperSimulation);
+        }
+
+        if (lastViewedFrame != null) {
+            long viewedFrame = (long)lastViewedFrame;
+            int lastViewedFrameIndex = viewedFrame > int.MaxValue
+                ? int.MaxValue
+                : (int)viewedFrame;
+            FrameBuffer.SetLastViewedFrameIndex(lastViewedFrameIndex);
+        }
+
+        error = null;
+        return true;
     }
 
     private void WorldRemove(string worldUid) {
