@@ -1,0 +1,17 @@
+{
+    "uid": "ECA",
+    "name": "Elementary Cellular Automaton World",
+    "space": 1,
+    "dimensions": [100],
+    "characteristics": [],
+    "mode": "SynchronousCA",
+    "initialization": {
+        "method": "SimLabECA.dll;SimLabECA.ECA;Initialization"
+    },
+    "precycle": {
+        "method": "SimLabECA.dll;SimLabECA.ECA;PreCycle"
+    },
+    "processworld": {
+        "method": "SimLabECA.dll;SimLabECA.ECA;ProcessWorld"
+    }
+}

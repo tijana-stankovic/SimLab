@@ -3,18 +3,19 @@ CREATE TABLE world (
     id          integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     uid         text NOT NULL,
     name        text NOT NULL,
-    space       smallint NOT NULL CHECK (space IN (2, 3)),
+    space       smallint NOT NULL CHECK (space IN (1, 2, 3)),
     x           integer NOT NULL CHECK (x >= 0), -- 0 means unbounded dimension
-    y           integer NOT NULL CHECK (y >= 0), -- 0 means unbounded dimension
-    z           integer NOT NULL DEFAULT 0 CHECK (z >= 0), -- 0 means unbounded dimension (and 2D default)
+    y           integer NOT NULL CHECK (y >= 0), -- 0 = unbounded / unused in 1D
+    z           integer NOT NULL DEFAULT 0 CHECK (z >= 0), -- 0 = unbounded / unused in 1D & 2D
     mode        char(1) NOT NULL CHECK (mode IN ('S', 'A')), -- S = SynchronousCA, A = Asynchronous
     last_cycle  bigint CHECK (last_cycle IS NULL OR last_cycle >= 0), -- null = simulation not initialized yet
     next_cell_id bigint NOT NULL DEFAULT 1 CHECK (next_cell_id >= 1), -- next value for system _id assignment
     last_viewed_frame bigint CHECK (last_viewed_frame IS NULL OR last_viewed_frame >= 0), -- null = visualization not opened yet
     created_at  timestamptz NOT NULL DEFAULT now(),
     CHECK (
+        (space = 1 AND y = 0 AND z = 0) OR
         (space = 2 AND z = 0) OR
-        (space = 3 AND z >= 0)
+        (space = 3)
     )
 );
 
@@ -100,7 +101,7 @@ CREATE TABLE simunit (
     cycle       bigint NOT NULL REFERENCES cycle(id) ON DELETE CASCADE,
     simunit_id  bigint NOT NULL CHECK (simunit_id >= 1),
     x           integer NOT NULL,
-    y           integer NOT NULL,
+    y           integer NOT NULL DEFAULT 0,
     z           integer NOT NULL DEFAULT 0,
     CONSTRAINT ux_simunit_cycle_simunit_id UNIQUE (cycle, simunit_id),
     CONSTRAINT ux_simunit_cycle_position UNIQUE (cycle, x, y, z)

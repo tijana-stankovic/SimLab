@@ -143,23 +143,23 @@ internal class PostgreSql(string connectionString) : IDatabase {
             return false;
         }
 
-        if (worldCfg.Dimensions == null || worldCfg.Dimensions.Length < 2) {
+        if (worldCfg.Dimensions == null || worldCfg.Dimensions.Length is not (1 or 2 or 3)) {
             error = "World dimensions are missing or invalid.";
             return false;
         }
 
-        if (worldCfg.Space != 2 && worldCfg.Space != 3) {
-            error = $"Unsupported world space value '{worldCfg.Space}'. Expected 2 or 3.";
+        if (worldCfg.Space is not (1 or 2 or 3)) {
+            error = $"Unsupported world space value '{worldCfg.Space}'. Expected 1, 2 or 3.";
             return false;
         }
 
-        if (worldCfg.Space == 3 && worldCfg.Dimensions.Length < 3) {
-            error = "World space is 3, but dimensions do not contain Z value.";
+        if (worldCfg.Dimensions.Length < worldCfg.Space) {
+            error = $"World space is {worldCfg.Space}, but dimensions contain only {worldCfg.Dimensions.Length} values.";
             return false;
         }
 
         int dimX = worldCfg.Dimensions[0];
-        int dimY = worldCfg.Dimensions[1];
+        int dimY = worldCfg.Space >= 2 ? worldCfg.Dimensions[1] : 0;
         int dimZ = worldCfg.Space == 3 ? worldCfg.Dimensions[2] : 0;
 
         if (dimX < 0 || dimY < 0 || dimZ < 0) {
