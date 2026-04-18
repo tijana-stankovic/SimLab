@@ -1,0 +1,6 @@
+# ECA space interval (from, to)
+0, 100
+# Rule number:
+22
+# Initial 1
+50
