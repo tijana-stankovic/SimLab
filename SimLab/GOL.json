@@ -5,6 +5,8 @@
     "dimensions": [10, 10],
     "characteristics": [],
     "mode": "SynchronousCA",
+    // "background": [255, 255, 0],
+    "foreground": [255, 0, 0],
     "initialization": {
         "method": "SimLabGOL.dll;SimLabGOL.GameOfLife;Initialization",
         "parameters": ["GOL.txt"]

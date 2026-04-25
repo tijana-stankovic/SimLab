@@ -7,6 +7,8 @@ internal class World {
     // default colors if not specified in config
     private static readonly SimColor s_defaultForegroundColor = new(0, 255, 0); // green
     private static readonly SimColor s_defaultBackgroundColor = new(0, 0, 0); // black
+    internal static SimColor DefaultForegroundColor => s_defaultForegroundColor;
+    internal static SimColor DefaultBackgroundColor => s_defaultBackgroundColor;
 
     public int? Id { get; set; }
     public string? Uid { get; set; }

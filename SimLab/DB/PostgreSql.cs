@@ -1,6 +1,7 @@
 using Npgsql;
 using SimLab.Configuration;
 using SimLab.Simulator;
+using SimColor = SimLab.Simulator.Color;
 using SimulatorPosition = SimLab.Simulator.Position;
 using SimLabApi;
 
@@ -168,6 +169,8 @@ internal class PostgreSql(string connectionString) : IDatabase {
         }
 
         char mode = ParseMode(worldCfg.Mode);
+        int foregroundPacked = PackRgb(worldCfg.Foreground, World.DefaultForegroundColor);
+        int backgroundPacked = PackRgb(worldCfg.Background, World.DefaultBackgroundColor);
         string? requestedUid = string.IsNullOrWhiteSpace(worldCfg.Uid) ? null : worldCfg.Uid.Trim();
 
         var characteristicIdByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -203,8 +206,8 @@ internal class PostgreSql(string connectionString) : IDatabase {
                 }
 
                 using (var insertWorldCommand = new NpgsqlCommand(@"
-                    INSERT INTO world (uid, name, space, x, y, z, mode, last_cycle, next_cell_id, last_viewed_frame)
-                    VALUES (@uid, @name, @space, @x, @y, @z, @mode, @last_cycle, @next_cell_id, @last_viewed_frame)
+                    INSERT INTO world (uid, name, space, x, y, z, mode, foreground, background, last_cycle, next_cell_id, last_viewed_frame)
+                    VALUES (@uid, @name, @space, @x, @y, @z, @mode, @foreground, @background, @last_cycle, @next_cell_id, @last_viewed_frame)
                     RETURNING id, uid", connection, transaction)) {
                     insertWorldCommand.Parameters.AddWithValue("uid", requestedUid ?? "");
                     insertWorldCommand.Parameters.AddWithValue("name", worldCfg.Name);
@@ -213,6 +216,8 @@ internal class PostgreSql(string connectionString) : IDatabase {
                     insertWorldCommand.Parameters.AddWithValue("y", dimY);
                     insertWorldCommand.Parameters.AddWithValue("z", dimZ);
                     insertWorldCommand.Parameters.AddWithValue("mode", mode.ToString());
+                    insertWorldCommand.Parameters.AddWithValue("foreground", foregroundPacked);
+                    insertWorldCommand.Parameters.AddWithValue("background", backgroundPacked);
                     insertWorldCommand.Parameters.AddWithValue("last_cycle", NpgsqlTypes.NpgsqlDbType.Bigint, DBNull.Value);
                     insertWorldCommand.Parameters.AddWithValue("next_cell_id", 1L);
                     insertWorldCommand.Parameters.AddWithValue("last_viewed_frame", NpgsqlTypes.NpgsqlDbType.Bigint, DBNull.Value);
@@ -289,6 +294,31 @@ internal class PostgreSql(string connectionString) : IDatabase {
         }
     }
 
+    private static int PackRgb(int[]? rgb, SimColor defaultColor) {
+        byte r;
+        byte g;
+        byte b;
+
+        if (rgb == null || rgb.Length < 3) {
+            r = defaultColor.R;
+            g = defaultColor.G;
+            b = defaultColor.B;
+        } else {
+            r = (byte)rgb[0];
+            g = (byte)rgb[1];
+            b = (byte)rgb[2];
+        }
+
+        return (r << 16) | (g << 8) | b;
+    }
+
+    private static int[] UnpackRgb(int packedRgb) {
+        int r = (packedRgb >> 16) & 255;
+        int g = (packedRgb >> 8) & 255;
+        int b = packedRgb & 255;
+        return new int[] { r, g, b };
+    }
+
     // Save one phase (e.g. Initialization, PreCycle, etc.) and its parameters in the database.
     private static void SavePhase(
         MethodCfg? phaseConfig,
@@ -359,9 +389,11 @@ internal class PostgreSql(string connectionString) : IDatabase {
             int dimY = 0;
             int dimZ = 0;
             string? loadedMode = null;
+            int loadedForeground = PackRgb(null, World.DefaultForegroundColor);
+            int loadedBackground = PackRgb(null, World.DefaultBackgroundColor);
 
             using (var worldCommand = new NpgsqlCommand(@"
-                SELECT id, uid, name, space, x, y, z, mode, last_cycle, next_cell_id, last_viewed_frame
+                SELECT id, uid, name, space, x, y, z, mode, foreground, background, last_cycle, next_cell_id, last_viewed_frame
                 FROM world
                 WHERE upper(uid) = upper(@uid)", connection)) {
                 worldCommand.Parameters.AddWithValue("uid", worldUid.Trim());
@@ -381,9 +413,11 @@ internal class PostgreSql(string connectionString) : IDatabase {
                 dimZ = worldReader.GetInt32(6);
                 string modeCode = worldReader.GetString(7);
                 loadedMode = ModeCodeToText(modeCode);
-                lastCycle = worldReader.IsDBNull(8) ? null : worldReader.GetInt64(8);
-                nextCellId = worldReader.GetInt64(9);
-                lastViewedFrame = worldReader.IsDBNull(10) ? null : worldReader.GetInt64(10);
+                loadedForeground = worldReader.GetInt32(8);
+                loadedBackground = worldReader.GetInt32(9);
+                lastCycle = worldReader.IsDBNull(10) ? null : worldReader.GetInt64(10);
+                nextCellId = worldReader.GetInt64(11);
+                lastViewedFrame = worldReader.IsDBNull(12) ? null : worldReader.GetInt64(12);
             }
 
             if (loadedUid == null || loadedName == null || loadedMode == null) {
@@ -510,6 +544,8 @@ internal class PostgreSql(string connectionString) : IDatabase {
                 Space = loadedSpace,
                 Dimensions = dimensions,
                 Characteristics = characteristicNames.ToArray(),
+                Foreground = UnpackRgb(loadedForeground),
+                Background = UnpackRgb(loadedBackground),
                 Mode = loadedMode,
                 Initialization = initialization,
                 PreCycle = preCycle,

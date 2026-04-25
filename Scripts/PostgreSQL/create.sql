@@ -8,6 +8,8 @@ CREATE TABLE world (
     y           integer NOT NULL CHECK (y >= 0), -- 0 = unbounded / unused in 1D
     z           integer NOT NULL DEFAULT 0 CHECK (z >= 0), -- 0 = unbounded / unused in 1D & 2D
     mode        char(1) NOT NULL CHECK (mode IN ('S', 'A')), -- S = SynchronousCA, A = Asynchronous
+    foreground  integer NOT NULL DEFAULT 65280, -- default RGB (0,255,0) packed as 0x00FF00
+    background  integer NOT NULL DEFAULT 0, -- default RGB (0,0,0) packed as 0x000000
     last_cycle  bigint CHECK (last_cycle IS NULL OR last_cycle >= 0), -- null = simulation not initialized yet
     next_cell_id bigint NOT NULL DEFAULT 1 CHECK (next_cell_id >= 1), -- next value for system _id assignment
     last_viewed_frame bigint CHECK (last_viewed_frame IS NULL OR last_viewed_frame >= 0), -- null = visualization not opened yet
