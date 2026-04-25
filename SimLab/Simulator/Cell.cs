@@ -7,9 +7,10 @@ namespace SimLab.Simulator;
 internal class Cell : ICell{
     public static long ActiveWriteCycle { get; set; } = 0;
     public static bool SkipWriteAccessCheck { get; set; } = false;
+    internal static SimColor DefaultColor { get; set; } = new(0, 0, 0);
 
     private readonly float[] _characteristicValues;
-    private SimColor _color = new(0, 0, 0); // RGB
+    private SimColor _color;
     private long Id { get; set; } = -1;
     private float Fitness { get; set; } = 0;
 
@@ -25,6 +26,7 @@ internal class Cell : ICell{
 
     public Cell() {
         _characteristicValues = new float[Characteristics.Count];
+        _color = DefaultColor;
         WritableInCycle = ActiveWriteCycle;
     }
 
@@ -73,6 +75,10 @@ internal class Cell : ICell{
 
             _characteristicValues[Characteristics.GetIndex(name)] = value;
         }
+    }
+
+    internal SimColor GetColor() {
+        return _color;
     }
 
     public void SetColor(byte r, byte g, byte b) {

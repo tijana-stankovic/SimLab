@@ -1,7 +1,6 @@
 {
   "type": "PostgreSql",
   "host": "localhost",
-  //"host": "65.108.215.42",
   "port": 5432,
   "database": "simlab",
   "user": "simlab"

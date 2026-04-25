@@ -96,7 +96,11 @@ internal class Visualizer {
         Frame frame = frameBuffer.GetFrame(currentFrameIndex)!;
 
         Raylib.BeginDrawing();
-        Raylib.ClearBackground(RayColor.Black);
+        Raylib.ClearBackground(new RayColor(
+            frameBuffer.BackgroundColor.R,
+            frameBuffer.BackgroundColor.G,
+            frameBuffer.BackgroundColor.B,
+            (byte)255));
 
         Raylib.BeginMode3D(camera);
         DrawGrid(frameBuffer, frame);
@@ -132,7 +136,9 @@ internal class Visualizer {
         int maxX = Math.Max(worldWidth, 10); // 10 is the minimum grid size
         int maxZ = Math.Max(worldDepth, 10); // 10 is the minimum grid size
 
-        foreach (Position pos in frame.Cells) {     
+        foreach (FrameCell cell in frame.Cells) {
+            Position pos = cell.Position;
+
             minX = Math.Min(minX, pos.X);
             maxX = Math.Max(maxX, pos.X + 1);
 
@@ -174,9 +180,11 @@ internal class Visualizer {
 
     // draws cells as cubes based on their positions in the frame
     private static void DrawCells(int worldSpace, Frame frame) {
-        foreach (Position pos in frame.Cells) {
-            Vector3 cellPosition = AdjustedCellPosition(worldSpace, pos);
-            Raylib.DrawCube(cellPosition, CellSize, CellSize, CellSize, RayColor.Lime);
+        foreach (FrameCell cell in frame.Cells) {
+            Vector3 cellPosition = AdjustedCellPosition(worldSpace, cell.Position);
+            RayColor fillColor = new RayColor(cell.Color.R, cell.Color.G, cell.Color.B, (byte)255);
+
+            Raylib.DrawCube(cellPosition, CellSize, CellSize, CellSize, fillColor);
             Raylib.DrawCubeWires(cellPosition, CellSize, CellSize, CellSize, new RayColor(20, 80, 20, 255));
         }
     }

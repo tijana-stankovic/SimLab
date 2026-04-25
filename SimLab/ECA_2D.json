@@ -5,6 +5,8 @@
     "dimensions": [100, 100],
     "characteristics": [],
     "mode": "SynchronousCA",
+    "background": [255, 255, 0],
+    "foreground": [0, 0, 255],
     "initialization": {
         "method": "SimLabECA_2D.dll;SimLabECA_2D.ECA_2D;Initialization",
         "parameters": ["ECA_0_100_rule22.txt"]

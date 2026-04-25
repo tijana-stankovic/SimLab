@@ -1,4 +1,5 @@
 using SimLab.Simulator;
+using SimColor = SimLab.Simulator.Color;
 
 namespace SimLab.Visualization;
 
@@ -10,10 +11,14 @@ internal class FrameBuffer {
 
     public int WorldSpace { get; }
     public int[] WorldDimensions { get; }
+    public SimColor ForegroundColor { get; }
+    public SimColor BackgroundColor { get; }
 
     public FrameBuffer(World world) {
         WorldSpace = world.Space;
         WorldDimensions = (int[])world.Dimensions.Clone();
+        ForegroundColor = world.ForegroundColor;
+        BackgroundColor = world.BackgroundColor;
     }
 
     public void Capture(Simulation simulation) {
