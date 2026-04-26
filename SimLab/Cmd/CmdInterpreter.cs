@@ -531,7 +531,8 @@ internal class CmdInterpreter {
         }
 
         try {
-            int startFrameIndex = FrameBuffer.GetStartFrameIndex();
+            //int startFrameIndex = FrameBuffer.GetStartFrameIndex();
+            int lastViewedFrameIndex = FrameBuffer.GetLastViewedFrameIndex();
             int frameIndex = Visualizer.Show(FrameBuffer);
             if (frameIndex == 0) {
                 View.Print($"[Show] Closed visualization on the initial cells position.");
@@ -539,7 +540,7 @@ internal class CmdInterpreter {
                 View.Print($"[Show] Closed visualization on frame {frameIndex}/{FrameBuffer.Count - 1}.");
             }
 
-            if (frameIndex >= 0 && frameIndex != startFrameIndex && Database != null && Simulation != null && Simulation.World.Id.HasValue) {
+            if (frameIndex >= 0 && frameIndex != lastViewedFrameIndex && Database != null && Simulation != null && Simulation.World.Id.HasValue) {
                 if (Database.UpdateWorldLastViewedFrame(Simulation.World.Id.Value, frameIndex, out string? updateError)) {
                     Simulation.World.LastViewedFrame = frameIndex;
                 } else {
@@ -617,14 +618,19 @@ internal class CmdInterpreter {
         }
 
         View.Print("[WORLD LIST] Existing worlds:");
-        View.Print("id      uid/name                        space    x      y      z      mode  last_cycle  next_cell_id  last_viewed_frame");
+        View.Print("id      uid/name                        space    x      y      z      mode  last_cycle  next_cell_id  last_viewed_cycle");
 
         foreach (DbWorldInfo worldInfo in worlds) {
-            string lastCycleText = worldInfo.LastCycle.HasValue ? worldInfo.LastCycle.Value.ToString() : "null";
-            string lastViewedFrameText = worldInfo.LastViewedFrame.HasValue ? worldInfo.LastViewedFrame.Value.ToString() : "null";
+            string lastCycleText = worldInfo.LastCycle.HasValue ? worldInfo.LastCycle.Value.ToString() : "n/a";
+            if (lastCycleText == "0") {
+                lastCycleText = "init.pos.";
+            }
+            string lastViewedFrameText = worldInfo.LastViewedFrame.HasValue ? worldInfo.LastViewedFrame.Value.ToString() : "n/a";
+            if (lastViewedFrameText == "0") {
+                lastViewedFrameText = "init.pos.";
+            }
 
-            View.Print(
-                $"{worldInfo.Id,-8}{worldInfo.Uid,-32}{worldInfo.Space,-9}{worldInfo.X,-7}{worldInfo.Y,-7}{worldInfo.Z,-7}{worldInfo.Mode,-6}{lastCycleText,-12}{worldInfo.NextCellId,-14}{lastViewedFrameText}");
+            View.Print($"{worldInfo.Id,-8}{worldInfo.Uid,-32}{worldInfo.Space,-9}{worldInfo.X,-7}{worldInfo.Y,-7}{worldInfo.Z,-7}{worldInfo.Mode,-6}{lastCycleText,-12}{worldInfo.NextCellId,-14}{lastViewedFrameText}");
             View.Print($"{string.Empty,-8}{worldInfo.Name}");
         }
     }

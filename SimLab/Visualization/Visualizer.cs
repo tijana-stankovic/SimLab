@@ -209,7 +209,11 @@ internal class Visualizer {
         }
         // HUD information
         if (DisplayHUD) {
-            Raylib.DrawText($"Frame: {currentFrameIndex + 1}/{frameBuffer.Count}", 10, 10, 20, RayColor.White);
+            if (currentFrameIndex == 0) {
+                Raylib.DrawText($"Initial position. Total simulation cycles: {frameBuffer.Count-1}", 10, 10, 20, RayColor.White);
+            } else {
+                Raylib.DrawText($"Cycle: {currentFrameIndex}/{frameBuffer.Count-1}", 10, 10, 20, RayColor.White);
+            }
             if (frame != null)
                 Raylib.DrawText($"Cells: {frame.Cells.Count}", 10, 40, 20, RayColor.White);
             Raylib.DrawText("[LeftMouseButton]=orbit  [RightMouseButton or QEAD]=pan [Wheel or WS]=zoom", 10, 70, 20, RayColor.LightGray);

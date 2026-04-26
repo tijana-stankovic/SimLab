@@ -44,6 +44,10 @@ internal class FrameBuffer {
         return _lastViewedFrameIndex;
     }
 
+    public int GetLastViewedFrameIndex() {
+        return _lastViewedFrameIndex;
+    }
+
     public void SetLastViewedFrameIndex(int index) {
         if (!HasFrames) {
             _lastViewedFrameIndex = -1;
