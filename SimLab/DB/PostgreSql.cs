@@ -663,6 +663,61 @@ internal class PostgreSql(string connectionString) : IDatabase {
         }
     }
 
+    public bool ResetWorldSimulation(int worldId, out string? error) {
+        if (!IsConnected) {
+            error = "Database is not connected.";
+            return false;
+        }
+
+        if (worldId <= 0) {
+            error = $"Invalid world ID '{worldId}'.";
+            return false;
+        }
+
+        try {
+            using var connection = DataSource!.OpenConnection();
+            using var transaction = connection.BeginTransaction();
+
+            try {
+                // Delete all cycles (and CASCADE DELETE simunits and simunit_data) for the world.
+                using (var deleteCyclesCommand = new NpgsqlCommand(@"
+                    DELETE FROM cycle
+                    WHERE world = @world_id", connection, transaction)) {
+                    deleteCyclesCommand.Parameters.AddWithValue("world_id", worldId);
+                    deleteCyclesCommand.ExecuteNonQuery();
+                }
+
+                using (var updateWorldCommand = new NpgsqlCommand(@"
+                    UPDATE world
+                    SET last_cycle = @last_cycle,
+                        next_cell_id = @next_cell_id,
+                        last_viewed_frame = @last_viewed_frame
+                    WHERE id = @world_id", connection, transaction)) {
+                    updateWorldCommand.Parameters.AddWithValue("last_cycle", NpgsqlTypes.NpgsqlDbType.Bigint, DBNull.Value);
+                    updateWorldCommand.Parameters.AddWithValue("next_cell_id", 1L);
+                    updateWorldCommand.Parameters.AddWithValue("last_viewed_frame", NpgsqlTypes.NpgsqlDbType.Bigint, DBNull.Value);
+                    updateWorldCommand.Parameters.AddWithValue("world_id", worldId);
+
+                    int affectedRows = updateWorldCommand.ExecuteNonQuery();
+                    if (affectedRows != 1) {
+                        throw new Exception($"World update failed for id={worldId}.");
+                    }
+                }
+
+                transaction.Commit();
+                error = null;
+                return true;
+            } catch (Exception ex) {
+                transaction.Rollback();
+                error = ex.Message;
+                return false;
+            }
+        } catch (Exception ex) {
+            error = ex.Message;
+            return false;
+        }
+    }
+
     public bool UpdateWorldLastViewedFrame(int worldId, long lastViewedFrame, out string? error) {
         if (!IsConnected) {
             error = "Database is not connected.";

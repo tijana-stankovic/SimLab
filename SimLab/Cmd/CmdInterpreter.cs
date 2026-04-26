@@ -43,7 +43,7 @@ internal class CmdInterpreter {
     public void ExecuteCommand(Command cmd) {
         StatusCode = StatusCode.NoError;
 
-        string command = cmd.Name.ToUpper();
+        string command = cmd.Name.ToUpperInvariant();
 
         switch (command) {
             case "": // do nothing
@@ -65,34 +65,19 @@ internal class CmdInterpreter {
                 Exit();
                 break;
 
-            case "TS":
-            case "TESTSIM":
-                if (cmd.Args.Length != 1) {
-                    View.Print("Invalid number of arguments for TESTSIM command.");
-                    View.Print("To specify the number of cycles, use: TESTSIM <number-of-cycles>");
-                    break;
-                } else if (int.TryParse(cmd.Args[0], out int numberOfCycles)) {
-                    TestSim(numberOfCycles);
-                }
-                break;
-
             case "W":
             case "WORLD":
                 World(cmd.Args);
                 break;
 
-            case "S":
-            case "SHOW":
-                if (cmd.Args.Length != 0) {
-                    View.Print("SHOW command does not accept arguments.");
-                    break;
-                }
-                Show();
+            case "SIM":
+            case "SIMULATION":
+                SimulationCommand(cmd.Args);
                 break;
 
-            case "T":
-            case "TEST":
-                TestPlugIn();
+            case "S":
+            case "SHOW":
+                Show(cmd.Args);
                 break;
 
             default:
@@ -121,9 +106,13 @@ internal class CmdInterpreter {
         View.Print("    - WORLD ADD <json-config-file>");
         View.Print("    - WORLD LOAD <world-uid>");
         View.Print("    - WORLD REMOVE <world-uid>");
-        View.Print("- TESTSIM (TS) <number-of-cycles>");
-        View.Print("  Run the simulation for the specified number of cycles.");
-        View.Print("- SHOW (S)");
+        View.Print("- SIMULATION (SIM) <subcommand> [arguments]");
+        View.Print("  Run/control simulation.");
+        View.Print("  Subcommands:");
+        View.Print("    - SIMULATION NEXT [<number-of-cycles>]");
+        View.Print("    - SIMULATION SHOW [<frame-number>]");
+        View.Print("    - SIMULATION INIT");
+        View.Print("- SHOW (S) [<frame-number>]");
         View.Print("  Open the visualization window for generated frames.");
         View.Print("- TEST (T)");
         View.Print("  Test a plug-in method.");
@@ -144,43 +133,6 @@ internal class CmdInterpreter {
     private void Exit() {
         Database?.Disconnect();
         QuitSignal = true;
-    }
-
-    /// <summary>
-    /// TEST command entry point.
-    /// Tests the plug-in functionality.
-    /// </summary>
-    private void TestPlugIn() {
-        // hard coded, for testing purposes
-        string plugInMethodPath = "SimLabPlugIn.dll;SimLabPlugIn.PlugIn;Test";
-
-        if (PlugIn.ParseMethodPath(plugInMethodPath,
-            out string dllName, 
-            out string className, 
-            out string methodName, 
-            out string? error)) {
-
-            var pluginMethod = PlugIn.GetMethod(dllName, className, methodName, out error);
-
-            if (pluginMethod != null) {
-                View.Print("Hello from the main program method TestPlugIn.");
-                var api = new API(Simulation);
-                api.Test("main program");
-                View.Print($"Calling plug-in method '{className}.{methodName}' from DLL '{dllName}'.");
-                if (PlugIn.Execute(pluginMethod, api, out error)) {
-                    View.Print("Returned from plug-in method.");
-                } else {
-                    View.Print($"Error calling plug-in method.");
-                    View.Print($"Error text:\n{error}");
-                }
-            } else {
-                View.Print($"Error retrieving plug-in method: '{methodName}' from class '{className}' in DLL '{dllName}'.");
-                View.Print($"Error text:\n{error}");
-            }
-        } else {
-            View.Print($"Error parsing plug-in method path: '{plugInMethodPath}'");
-            View.Print($"Error text:\n{error}");
-        }
     }
 
     static private MethodInfo? GetMethod(string plugInMethodPath) {
@@ -310,20 +262,6 @@ internal class CmdInterpreter {
         return builder.ToString();
     }
 
-    /*
-    // load JSON configuration file into memory without DB insert.
-    private void LoadConfigurationFile(string fileName) {
-        View.Print("[Info] Loading configuration from JSON file: " + fileName);
-        if (ConfigJson.LoadConfiguration(fileName, out WorldCfg? WorldCfg)) {
-            if (WorldCfg != null) {
-                ApplyWorldConfiguration(WorldCfg, "JSON file");
-            }
-        } else {
-            View.Print("[Warning] No valid configuration loaded from JSON file. Running without simulation world.");
-        }
-    }
-    */
-
     private void ApplyWorldConfiguration(WorldCfg worldCfg, string sourceDescription) {
         Characteristics.Init(worldCfg.Characteristics);
         Simulation = new Simulation(new World(worldCfg));
@@ -370,36 +308,108 @@ internal class CmdInterpreter {
         }
     }
 
-    private void Show() {
-        if (FrameBuffer == null || !FrameBuffer.HasFrames) {
-            View.Print("[Show] No generated frames available. Run TESTSIM first.");
+    private void SimulationCommand(string[] args) {
+        if (args.Length == 0) {
+            View.Print("SIMULATION command requires a subcommand.");
+            View.Print("Use: SIMULATION NEXT [n] | SIMULATION SHOW [arguments-for-show] | SIMULATION INIT");
             return;
         }
 
-        try {
-            int startFrameIndex = FrameBuffer.GetStartFrameIndex();
-            int frameIndex = Visualizer.Show(FrameBuffer);
-            if (frameIndex == 0) {
-                View.Print($"[Show] Closed visualization on the initial cells position.");
-            } else if (frameIndex > 0) {
-                View.Print($"[Show] Closed visualization on frame {frameIndex}/{FrameBuffer.Count - 1}.");
-            }
+        string subcommand = args[0].ToUpperInvariant();
 
-            if (frameIndex >= 0 && frameIndex != startFrameIndex && Database != null && Simulation != null && Simulation.World.Id.HasValue) {
-                if (Database.UpdateWorldLastViewedFrame(Simulation.World.Id.Value, frameIndex, out string? updateError)) {
-                    Simulation.World.LastViewedFrame = frameIndex;
-                } else {
-                    View.Print($"[Show] Failed to update last viewed frame in database: {updateError}");
+        switch (subcommand) {
+            case "NEXT":
+                if (args.Length > 2) {
+                    View.Print("Use: SIMULATION NEXT [n]");
+                    return;
                 }
-            }
-        } catch (Exception ex) {
-            View.Print($"[Show] Visualization error: {ex.Message}");
+
+                if (Simulation == null) {
+                    View.Print("No simulation loaded. Use WORLD ADD or WORLD LOAD first.");
+                    return;
+                }
+
+                int numberOfCycles;
+                if (args.Length == 2) {
+                    if (!int.TryParse(args[1], out numberOfCycles) || numberOfCycles < 0) {
+                        View.Print("Parameter n must be a non-negative integer.");
+                        return;
+                    }
+                } else {
+                    numberOfCycles = Simulation.IsRunning ? 1 : 0;
+                }
+
+                SimulationRun(numberOfCycles);
+                break;
+
+            case "SHOW":
+                Show(args.Skip(1).ToArray());
+                break;
+
+            case "INIT":
+                if (args.Length != 1) {
+                    View.Print("Use: SIMULATION INIT");
+                    return;
+                }
+                SimulationInit();
+                break;
+
+            default:
+                View.Print($"Unknown SIMULATION subcommand: {args[0]}");
+                View.Print("Use: SIMULATION NEXT [n] | SIMULATION SHOW [arguments-for-show] | SIMULATION INIT");
+                break;
         }
     }
 
-    private void TestSim(int numberOfCycles) {
+    private void SimulationInit() {
         if (Simulation == null) {
-            View.Print("No simulation created from configuration file. Cannot run TestSim.");
+            View.Print("No simulation loaded. Use WORLD ADD or WORLD LOAD first.");
+            return;
+        }
+
+        if (!Simulation.IsRunning) {
+            SimulationRun(0);
+            return;
+        }
+
+        char answer = Cli.AskYesNo("The simulation has already been started. Do you want to delete and reinitialize it?", false);
+        if (answer == 'N') {
+            View.Print("[Simulation INIT] Operation canceled.");
+            return;
+        }
+
+        if (Database == null) {
+            View.Print("[Simulation INIT] Database is not initialized.");
+            return;
+        }
+
+        if (!Simulation.World.Id.HasValue) {
+            View.Print("[Simulation INIT] Active world ID is missing.");
+            return;
+        }
+
+        if (!Database.ResetWorldSimulation(Simulation.World.Id.Value, out string? resetError)) {
+            View.Print($"[Simulation INIT] Failed to reset simulation in database: {resetError}");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Simulation.World.Uid)) {
+            View.Print("[Simulation INIT] Active world UID is missing.");
+            return;
+        }
+
+        string worldUid = Simulation.World.Uid;
+        if (!WorldLoad(worldUid)) {
+            View.Print("[Simulation INIT] Failed to load world after reset.");
+            return;
+        }
+
+        SimulationRun(0);
+    }
+
+    private void SimulationRun(int numberOfCycles) {
+        if (Simulation == null) {
+            View.Print("No simulation loaded. Use WORLD ADD or WORLD LOAD first.");
             return;
         }
 
@@ -414,17 +424,17 @@ internal class CmdInterpreter {
             sim.BeginCycle();
             
             if (sim.InitializationMethod != null) {
-                View.Print("[TestSim] Calling plug-in initialization method.");
+                View.Print("[Simulation] Calling plug-in initialization method.");
                 if (PlugIn.Execute(sim.InitializationMethod, api, out var error))
-                    View.Print("[TestSim] Initialization completed successfully.");
+                    View.Print("[Simulation] Initialization completed successfully.");
                 else
-                    View.Print($"[TestSim] Initialization error: {error}");
+                    View.Print($"[Simulation] Initialization error: {error}");
             }
             sim.EndCycle();
             FrameBuffer?.Capture(sim);
             if (Database != null) {
                 if (!Database.SaveCurrentState(sim, out string? saveError)) {
-                    View.Print($"[TestSim] Failed to save cycle {sim.Cycle} to database: {saveError}");
+                    View.Print($"[Simulation] Failed to save cycle {sim.Cycle} to database: {saveError}");
                 }
             }
             PrintCellCharacteristics(sim, "Initial characteristics of all cells:");
@@ -436,15 +446,15 @@ internal class CmdInterpreter {
         // Main simulation loop
         for (int i = 0; i < numberOfCycles; i++) {
             sim.Cycle++;
-            View.Print($"\n[TestSim] Starting cycle {sim.Cycle}.");
+            View.Print($"\n[Simulation] Starting cycle {sim.Cycle}.");
             sim.BeginCycle();
 
             void ExecuteIfNotNull(MethodInfo? method) {
                 if (method != null) {
                     if (PlugIn.Execute(method, api, out var error)) 
-                        View.Print($"    [TestSim] Plug-in method {method.Name} executed successfully.");
+                        View.Print($"    [Simulation] Plug-in method {method.Name} executed successfully.");
                     else 
-                        View.Print($"    [TestSim] Error executing plug-in method {method.Name}: {error}");
+                        View.Print($"    [Simulation] Error executing plug-in method {method.Name}: {error}");
                 }
             }
 
@@ -485,7 +495,7 @@ internal class CmdInterpreter {
             FrameBuffer?.Capture(sim);
             if (Database != null) {
                 if (!Database.SaveCurrentState(sim, out string? saveError)) {
-                    View.Print($"[TestSim] Failed to save cycle {sim.Cycle} to database: {saveError}");
+                    View.Print($"[Simulation] Failed to save cycle {sim.Cycle} to database: {saveError}");
                 }
             }
 
@@ -497,7 +507,7 @@ internal class CmdInterpreter {
 
     // go through all cells and print their characteristics
     static private void PrintCellCharacteristics(Simulation sim, string header) {
-        View.Print($"\n[TestSim] {header}");
+        View.Print($"\n[Simulation] {header}");
         foreach (var cellHandle in sim.GetAllCells()) {
             View.Print($"    @ {cellHandle.Position, -15}", false);
             View.Print($"id: {cellHandle.Cell["_id"], -10}", false);
@@ -506,6 +516,38 @@ internal class CmdInterpreter {
                 View.Print($"{characteristic.Name}: {characteristic.Value, -6}", false);
             }
             View.Print("");
+        }
+    }
+
+    private void Show(string[] args) {
+        if (args.Length != 0) {
+            View.Print("Argument support is not implemented yet.");
+            return;
+        }
+
+        if (FrameBuffer == null || !FrameBuffer.HasFrames) {
+            View.Print("[Show] No generated frames available. Run SIMULATION NEXT first.");
+            return;
+        }
+
+        try {
+            int startFrameIndex = FrameBuffer.GetStartFrameIndex();
+            int frameIndex = Visualizer.Show(FrameBuffer);
+            if (frameIndex == 0) {
+                View.Print($"[Show] Closed visualization on the initial cells position.");
+            } else if (frameIndex > 0) {
+                View.Print($"[Show] Closed visualization on frame {frameIndex}/{FrameBuffer.Count - 1}.");
+            }
+
+            if (frameIndex >= 0 && frameIndex != startFrameIndex && Database != null && Simulation != null && Simulation.World.Id.HasValue) {
+                if (Database.UpdateWorldLastViewedFrame(Simulation.World.Id.Value, frameIndex, out string? updateError)) {
+                    Simulation.World.LastViewedFrame = frameIndex;
+                } else {
+                    View.Print($"[Show] Failed to update last viewed frame in database: {updateError}");
+                }
+            }
+        } catch (Exception ex) {
+            View.Print($"[Show] Visualization error: {ex.Message}");
         }
     }
 
@@ -621,10 +663,10 @@ internal class CmdInterpreter {
         }
     }
 
-    private void WorldLoad(string worldUid) {
+    private bool WorldLoad(string worldUid) {
         if (Database == null) {
             View.Print("[WORLD LOAD] Database is not initialized.");
-            return;
+            return false;
         }
 
         if (!Database.LoadWorldDefinition(
@@ -636,12 +678,12 @@ internal class CmdInterpreter {
             out long? lastViewedFrame,
             out string? error)) {
             View.Print($"[WORLD LOAD] Error: {error}");
-            return;
+            return false;
         }
 
         if (worldCfg == null) {
             View.Print($"[WORLD LOAD] No world definition returned for UID '{worldUid}'.");
-            return;
+            return false;
         }
 
         ApplyWorldConfiguration(worldCfg, "database");
@@ -656,7 +698,7 @@ internal class CmdInterpreter {
                 long cycleNumber = (long)lastCycle;
                 if (!Database.LoadState(worldId, cycleNumber, Simulation, out string? loadStateError)) {
                     View.Print($"[WORLD LOAD] World definition loaded, but failed to restore last state: {loadStateError}");
-                    return;
+                    return false;
                 }
 
                 if (!BuildFrameBufferFromDatabaseHistory(worldId, cycleNumber, lastViewedFrame, nextCellId, worldCfg, out string? loadHistoryError)) {
@@ -667,6 +709,7 @@ internal class CmdInterpreter {
         }
 
         View.Print($"[WORLD LOAD] World '{worldCfg.Uid}' loaded successfully (id={worldId}).");
+        return true;
     }
 
     // load all saved cycles (0..lastCycle) into memory and build full frame buffer
