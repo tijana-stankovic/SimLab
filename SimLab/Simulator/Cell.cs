@@ -9,25 +9,36 @@ internal class Cell : ICell{
     public static bool SkipWriteAccessCheck { get; set; } = false;
     internal static SimColor DefaultColor { get; set; } = new(0, 0, 0);
 
-    private readonly float[] _characteristicValues;
-    private SimColor _color;
+    // CellID = unique identifier for the cell, assigned by the database when the cell is first saved
     private long Id { get; set; } = -1;
-    private float Fitness { get; set; } = 0;
+
+    // system cell characteristics names 
+    // (starting with underscore to distinguish them from user-defined characteristics)
+    internal const string IdName = "_id";
+    internal const string FitnessName = "_fitness";
+    internal const string ColorRName = "_color_r";
+    internal const string ColorGName = "_color_g";
+    internal const string ColorBName = "_color_b";
+
+    // list of system cell characteristics names
+    private static readonly string[] s_systemCharacteristicNames = [
+        FitnessName,
+        ColorRName,
+        ColorGName,
+        ColorBName
+    ];
+
+    // cell characteristics values (user plus system at the end)
+    private readonly float[] _characteristicValues;
 
     private long WritableInCycle { get; set; }
 
-    public ApiColor Color {
-        get => new(_color.R, _color.G, _color.B);
-        set {
-            WriteAccessCheck();
-            _color = ToSimColor(value);
-        }
-    }
-
+    // Cell constructor, for creating a new cell with default values
     public Cell() {
         _characteristicValues = new float[Characteristics.Count];
-        _color = DefaultColor;
         WritableInCycle = ActiveWriteCycle;
+        SetColor(DefaultColor.R, DefaultColor.G, DefaultColor.B);
+        this[FitnessName] = 0;
     }
 
     // copy constructor
@@ -35,9 +46,7 @@ internal class Cell : ICell{
     // Cell copy = new Cell(originalCell);
     public Cell(Cell other) {
         _characteristicValues = (float[])other._characteristicValues.Clone();
-        _color = other._color;
         Id = other.Id;
-        Fitness = other.Fitness;
         WritableInCycle = ActiveWriteCycle;
     }
 
@@ -59,8 +68,10 @@ internal class Cell : ICell{
     // access by name
     public float this[string name] {
         get {
-            if (IsSystemPropertyName(name)) {
-                return GetSystemPropertyValue(name);
+            // read "_id" system cell characteristic from the Id property, 
+            // not from the characteristic values array
+            if (name.Equals(IdName, StringComparison.OrdinalIgnoreCase)) {
+                return Id;
             }
 
             return _characteristicValues[Characteristics.GetIndex(name)];
@@ -68,37 +79,61 @@ internal class Cell : ICell{
         set {
             WriteAccessCheck();
 
-            if (IsSystemPropertyName(name)) {
-                SetSystemPropertyValue(name, value);
-                return;
+            // prevent writing to "_id" system cell characteristic
+            if (name.Equals(IdName, StringComparison.OrdinalIgnoreCase)) {
+                throw new InvalidOperationException("System characteristic '_id' is read-only.");
             }
 
             _characteristicValues[Characteristics.GetIndex(name)] = value;
         }
     }
 
-    internal SimColor GetColor() {
-        return _color;
+    // Id setter
+    internal void SetId(long id) {
+        Id = id;
     }
 
+    // Id getter
+    internal long GetId() {
+        return Id;
+    }
+
+    // ApiColor property getter and setter
+    // (for using from plugins)
+    public ApiColor Color {
+        get {
+            SimColor color = GetColor();
+            return new ApiColor(color.R, color.G, color.B);
+        }
+        set => SetColor(value.R, value.G, value.B);
+    }
+
+    // SimColor getter using system cell characteristics
+    internal SimColor GetColor() {
+        return new SimColor((byte)this[ColorRName], (byte)this[ColorGName], (byte)this[ColorBName]);
+    }
+
+    // SimColor setter using system cell characteristics
     public void SetColor(byte r, byte g, byte b) {
         WriteAccessCheck();
-        _color = new SimColor(r, g, b);
+        this[ColorRName] = r;
+        this[ColorGName] = g;
+        this[ColorBName] = b;
     }
 
     public void SetRed(byte r) {
         WriteAccessCheck();
-        _color = _color.WithRed(r);
+        this[ColorRName] = r;
     }
 
     public void SetGreen(byte g) {
         WriteAccessCheck();
-        _color = _color.WithGreen(g);
+        this[ColorGName] = g;
     }
 
     public void SetBlue(byte b) {
         WriteAccessCheck();
-        _color = _color.WithBlue(b);
+        this[ColorBName] = b;
     }
 
     private void WriteAccessCheck() {
@@ -110,48 +145,10 @@ internal class Cell : ICell{
         }
     }
 
-    internal void SetId(long id) {
-        Id = id;
-    }
+    internal static string[] MergeWithSystemCharacteristics(string[] characteristics) {
+        var merged = new List<string>(characteristics);
+        merged.AddRange(s_systemCharacteristicNames);
 
-    internal long GetId() {
-        return Id;
-    }
-
-    private static bool IsSystemPropertyName(string name) {
-        return name.StartsWith('_');
-    }
-
-    private float GetSystemPropertyValue(string name) {
-        float value;
-
-        switch (name.ToLowerInvariant()) {
-            case "_id":
-                value = Id;
-                break;
-            case "_fitness":
-                value = Fitness;
-                break;
-            default:
-                throw new ArgumentException($"Unknown system property '{name}'.");
-        }
-
-        return value;
-    }
-
-    private void SetSystemPropertyValue(string name, float value) {
-        switch (name.ToLowerInvariant()) {
-            case "_id":
-                throw new InvalidOperationException("System property '_id' is read-only.");
-            case "_fitness":
-                Fitness = value;
-                break;
-            default:
-                throw new ArgumentException($"Unknown system property '{name}'.");
-        }
-    }
-
-    private static SimColor ToSimColor(ApiColor color) {
-        return new SimColor(color.R, color.G, color.B);
+        return merged.ToArray();
     }
 }

@@ -262,6 +262,28 @@ internal class CmdInterpreter {
         return builder.ToString();
     }
 
+    // Add system cell characteristics to the user cell characteristics defined in the world configuration
+    static private WorldCfg ExtendUserCellCharacteristics(WorldCfg worldCfg) {
+        return new WorldCfg {
+            Uid = worldCfg.Uid,
+            Name = worldCfg.Name,
+            Space = worldCfg.Space,
+            Dimensions = worldCfg.Dimensions,
+            Characteristics = Cell.MergeWithSystemCharacteristics(worldCfg.Characteristics),
+            Mode = worldCfg.Mode,
+            Foreground = worldCfg.Foreground,
+            Background = worldCfg.Background,
+            Initialization = worldCfg.Initialization,
+            PreCycle = worldCfg.PreCycle,
+            ProcessWorld = worldCfg.ProcessWorld,
+            Update = worldCfg.Update,
+            Evaluation = worldCfg.Evaluation,
+            Reproduction = worldCfg.Reproduction,
+            Selection = worldCfg.Selection,
+            PostCycle = worldCfg.PostCycle
+        };
+    }
+
     private void ApplyWorldConfiguration(WorldCfg worldCfg, string sourceDescription) {
         Characteristics.Init(worldCfg.Characteristics);
         Simulation = new Simulation(new World(worldCfg));
@@ -650,6 +672,9 @@ internal class CmdInterpreter {
             View.Print($"[WORLD ADD] Configuration is empty in '{jsonConfigFile}'.");
             return;
         }
+
+        // add system cell characteristics to the user cell characteristics defined in the world configuration
+        worldCfg = ExtendUserCellCharacteristics(worldCfg);
 
         if (!Database.AddWorldDefinition(worldCfg, out int worldId, out string? worldUid, out string? error)) {
             View.Print($"[WORLD ADD] Error: {error}");
