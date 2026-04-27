@@ -8,6 +8,7 @@ using System.Reflection;
 using SimLab.Visualization;
 using SimLab.DB;
 using System.Text;
+using SimWorld = SimLab.Simulator.World;
 
 namespace SimLab.Cmd;
 
@@ -270,6 +271,7 @@ internal class CmdInterpreter {
             Space = worldCfg.Space,
             Dimensions = worldCfg.Dimensions,
             Characteristics = Cell.MergeWithSystemCharacteristics(worldCfg.Characteristics),
+            Globals = SimWorld.MergeWithSystemGlobals(worldCfg.Globals),
             Mode = worldCfg.Mode,
             Foreground = worldCfg.Foreground,
             Background = worldCfg.Background,
@@ -286,6 +288,7 @@ internal class CmdInterpreter {
 
     private void ApplyWorldConfiguration(WorldCfg worldCfg, string sourceDescription) {
         Characteristics.Init(worldCfg.Characteristics);
+        Globals.Init(worldCfg.Globals);
         Simulation = new Simulation(new World(worldCfg));
         FrameBuffer = new FrameBuffer(Simulation.World);
         Simulation.Mode = ParseModeOrDefault(worldCfg.Mode, out bool invalidMode);

@@ -5,7 +5,8 @@ internal class WorldCfg {
     public required string Name { get; init; }
     public required int Space { get; init; }
     public required int[] Dimensions { get; init; }
-    public required string[] Characteristics { get; init; }
+    public string[] Characteristics { get; init; } = [];
+    public string[] Globals { get; init; } = [];
     public string? Mode { get; init; }
     public int[]? Foreground { get; init; }
     public int[]? Background { get; init; }

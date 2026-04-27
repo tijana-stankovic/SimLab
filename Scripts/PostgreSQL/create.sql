@@ -8,8 +8,6 @@ CREATE TABLE world (
     y           integer NOT NULL CHECK (y >= 0), -- 0 = unbounded / unused in 1D
     z           integer NOT NULL DEFAULT 0 CHECK (z >= 0), -- 0 = unbounded / unused in 1D & 2D
     mode        char(1) NOT NULL CHECK (mode IN ('S', 'A')), -- S = SynchronousCA, A = Asynchronous
-    foreground  integer NOT NULL DEFAULT 65280, -- default RGB (0,255,0) packed as 0x00FF00
-    background  integer NOT NULL DEFAULT 0, -- default RGB (0,0,0) packed as 0x000000
     last_cycle  bigint CHECK (last_cycle IS NULL OR last_cycle >= 0), -- null = simulation not initialized yet
     next_cell_id bigint NOT NULL DEFAULT 1 CHECK (next_cell_id >= 1), -- next value for system _id assignment
     last_viewed_frame bigint CHECK (last_viewed_frame IS NULL OR last_viewed_frame >= 0), -- null = visualization not opened yet
@@ -43,7 +41,21 @@ EXECUTE FUNCTION trg_world_set_uid();
 -- Enforce case-insensitive uniqueness for world UID while preserving original text
 CREATE UNIQUE INDEX ux_world_uid_ci ON world (upper(uid));
 
--- Create characteristic table (ordered characteristic definitions per world)
+-- Create global_characteristic table (ordered global characteristic definitions per world)
+CREATE TABLE global_characteristic (
+    id      integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    world   integer NOT NULL REFERENCES world(id) ON DELETE CASCADE,
+    name    text NOT NULL,
+    ord     integer NOT NULL CHECK (ord >= 0) -- zero-based order to match C# array/list indexing
+);
+
+-- Enforce case-insensitive uniqueness for global characteristic name within a world
+CREATE UNIQUE INDEX ux_global_characteristic_world_name_ci ON global_characteristic (world, upper(name));
+
+-- Enforce unique order position of global characteristics within a world
+CREATE UNIQUE INDEX ux_global_characteristic_world_ord ON global_characteristic (world, ord);
+
+-- Create characteristic table (ordered cell characteristic definitions per world)
 CREATE TABLE characteristic (
     id      integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     world   integer NOT NULL REFERENCES world(id) ON DELETE CASCADE,
@@ -96,6 +108,16 @@ CREATE TABLE cycle (
 );
 
 CREATE INDEX ix_cycle_world ON cycle (world);
+
+-- Create global_data table (global characteristic values for each cycle)
+CREATE TABLE global_data (
+    cycle                   bigint NOT NULL REFERENCES cycle(id) ON DELETE CASCADE,
+    global_characteristic   integer NOT NULL REFERENCES global_characteristic(id) ON DELETE CASCADE,
+    value                   real NOT NULL,
+    PRIMARY KEY (cycle, global_characteristic)
+);
+
+CREATE INDEX ix_global_data_global_characteristic ON global_data (global_characteristic);
 
 -- Create simunit table (cells/simulation units stored for one cycle)
 CREATE TABLE simunit (
