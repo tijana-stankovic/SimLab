@@ -574,6 +574,8 @@ internal class CmdInterpreter {
             }
         } catch (Exception ex) {
             View.Print($"[Show] Visualization error: {ex.Message}");
+        } finally {
+            UpdateCellDefaultColor();
         }
     }
 
@@ -721,29 +723,33 @@ internal class CmdInterpreter {
         }
 
         ApplyWorldConfiguration(worldCfg, "database");
-        if (Simulation != null) {
-            Simulation.World.Id = worldId;
-            Simulation.World.Uid = worldCfg.Uid;
-            Simulation.World.LastCycle = lastCycle;
-            Simulation.World.NextCellId = nextCellId;
-            Simulation.World.LastViewedFrame = lastViewedFrame;
+        try {
+            if (Simulation != null) {
+                Simulation.World.Id = worldId;
+                Simulation.World.Uid = worldCfg.Uid;
+                Simulation.World.LastCycle = lastCycle;
+                Simulation.World.NextCellId = nextCellId;
+                Simulation.World.LastViewedFrame = lastViewedFrame;
 
-            if (lastCycle != null) {
-                long cycleNumber = (long)lastCycle;
-                if (!Database.LoadState(worldId, cycleNumber, Simulation, out string? loadStateError)) {
-                    View.Print($"[WORLD LOAD] World definition loaded, but failed to restore last state: {loadStateError}");
-                    return false;
-                }
+                if (lastCycle != null) {
+                    long cycleNumber = (long)lastCycle;
+                    if (!Database.LoadState(worldId, cycleNumber, Simulation, out string? loadStateError)) {
+                        View.Print($"[WORLD LOAD] World definition loaded, but failed to restore last state: {loadStateError}");
+                        return false;
+                    }
 
-                if (!BuildFrameBufferFromDatabaseHistory(worldId, cycleNumber, lastViewedFrame, nextCellId, worldCfg, out string? loadHistoryError)) {
-                    FrameBuffer = null;
-                    View.Print($"[WORLD LOAD] Warning: last state restored, but failed to build visualization frame history: {loadHistoryError}");
+                    if (!BuildFrameBufferFromDatabaseHistory(worldId, cycleNumber, lastViewedFrame, nextCellId, worldCfg, out string? loadHistoryError)) {
+                        FrameBuffer = null;
+                        View.Print($"[WORLD LOAD] Warning: last state restored, but failed to build visualization frame history: {loadHistoryError}");
+                    }
                 }
             }
-        }
 
-        View.Print($"[WORLD LOAD] World '{worldCfg.Uid}' loaded successfully (id={worldId}).");
-        return true;
+            View.Print($"[WORLD LOAD] World '{worldCfg.Uid}' loaded successfully (id={worldId}).");
+            return true;
+        } finally {
+            UpdateCellDefaultColor();
+        }
     }
 
     // load all saved cycles (0..lastCycle) into memory and build full frame buffer
@@ -761,27 +767,37 @@ internal class CmdInterpreter {
         helperSimulation.World.NextCellId = nextCellId;
         helperSimulation.Mode = ParseModeOrDefault(worldCfg.Mode, out _);
 
-        FrameBuffer = new FrameBuffer(helperSimulation.World);
+        try {
+            FrameBuffer = new FrameBuffer(helperSimulation.World);
 
-        for (long cycleNumber = 0; cycleNumber <= lastCycle; cycleNumber++) {
-            if (!Database.LoadState(worldId, cycleNumber, helperSimulation, out string? loadStateError)) {
-                error = $"Failed to load cycle {cycleNumber}: {loadStateError}";
-                return false;
+            for (long cycleNumber = 0; cycleNumber <= lastCycle; cycleNumber++) {
+                if (!Database.LoadState(worldId, cycleNumber, helperSimulation, out string? loadStateError)) {
+                    error = $"Failed to load cycle {cycleNumber}: {loadStateError}";
+                    return false;
+                }
+
+                FrameBuffer.Capture(helperSimulation);
             }
 
-            FrameBuffer.Capture(helperSimulation);
-        }
+            if (lastViewedFrame != null) {
+                long viewedFrame = (long)lastViewedFrame;
+                int lastViewedFrameIndex = viewedFrame > int.MaxValue
+                    ? int.MaxValue
+                    : (int)viewedFrame;
+                FrameBuffer.SetLastViewedFrameIndex(lastViewedFrameIndex);
+            }
 
-        if (lastViewedFrame != null) {
-            long viewedFrame = (long)lastViewedFrame;
-            int lastViewedFrameIndex = viewedFrame > int.MaxValue
-                ? int.MaxValue
-                : (int)viewedFrame;
-            FrameBuffer.SetLastViewedFrameIndex(lastViewedFrameIndex);
+            error = null;
+            return true;
+        } finally {
+            UpdateCellDefaultColor();
         }
+    }
 
-        error = null;
-        return true;
+    private void UpdateCellDefaultColor() {
+        if (Simulation != null) {
+            Cell.DefaultColor = Simulation.World.ForegroundColor;
+        }
     }
 
     private void WorldRemove(string worldUid) {

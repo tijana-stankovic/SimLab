@@ -61,13 +61,31 @@ internal class World {
     // access global values by index
     public float this[int index] {
         get => _globalValues[index];
-        set => _globalValues[index] = value;
+        set {
+            _globalValues[index] = value;
+            // this ensures that if the foreground color globals are changed directly by index, 
+            // the Cell.DefaultColor is updated 
+            if (index == Globals.GetIndex(ForegroundRName) ||
+                index == Globals.GetIndex(ForegroundGName) ||
+                index == Globals.GetIndex(ForegroundBName)) {
+                Cell.DefaultColor = ForegroundColor;
+            }
+        }
     }
 
     // access global values by name
     public float this[string name] {
         get => _globalValues[Globals.GetIndex(name)];
-        set => _globalValues[Globals.GetIndex(name)] = value;
+        set {
+            _globalValues[Globals.GetIndex(name)] = value;
+            // this ensures that if the foreground color globals are changed directly by name,
+            // the Cell.DefaultColor is updated
+            if (name.Equals(ForegroundRName, StringComparison.OrdinalIgnoreCase) ||
+                name.Equals(ForegroundGName, StringComparison.OrdinalIgnoreCase) ||
+                name.Equals(ForegroundBName, StringComparison.OrdinalIgnoreCase)) {
+                Cell.DefaultColor = ForegroundColor;
+            }
+        }
     }
 
     public SimColor ForegroundColor {

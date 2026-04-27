@@ -97,9 +97,9 @@ internal class Visualizer {
 
         Raylib.BeginDrawing();
         Raylib.ClearBackground(new RayColor(
-            frameBuffer.BackgroundColor.R,
-            frameBuffer.BackgroundColor.G,
-            frameBuffer.BackgroundColor.B,
+            frame.BackgroundColor.R,
+            frame.BackgroundColor.G,
+            frame.BackgroundColor.B,
             (byte)255));
 
         Raylib.BeginMode3D(camera);
