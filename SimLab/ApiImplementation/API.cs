@@ -1,7 +1,9 @@
-using SimLabApi;
+﻿using SimLabApi;
 using SimLab.Simulator;
 using SimLab.Configuration;
+using ApiColor = SimLabApi.Color;
 using ApiPosition = SimLabApi.Position;
+using SimColor = SimLab.Simulator.Color;
 using SimulatorPosition = SimLab.Simulator.Position;
 
 namespace SimLab.ApiImplementation;
@@ -15,6 +17,74 @@ internal class API(Simulation? sim) : ISimLabApi {
                 return 0;
             else
                 return _sim.Cycle;
+        }
+    }
+
+    public IGlobals Globals {
+        get {
+            if (_sim == null)
+                throw new InvalidOperationException("No active simulation.");
+
+            return _sim.World;
+        }
+    }
+
+    public int Space {
+        get {
+            if (_sim == null)
+                return 0;
+
+            return _sim.World.Space;
+        }
+    }
+
+    public int[] Dimensions {
+        get {
+            if (_sim == null)
+                return [];
+
+            return (int[])_sim.World.Dimensions.Clone();
+        }
+    }
+
+    public ApiColor ForegroundColor {
+        get {
+            if (_sim == null)
+                return new ApiColor(0, 0, 0);
+
+            SimColor color = _sim.World.ForegroundColor;
+            return new ApiColor(color.R, color.G, color.B);
+        }
+        set {
+            if (_sim == null)
+                return;
+
+            _sim.World.ForegroundColor = new SimColor(value.R, value.G, value.B);
+        }
+    }
+
+    public ApiColor BackgroundColor {
+        get {
+            if (_sim == null)
+                return new ApiColor(0, 0, 0);
+
+            SimColor color = _sim.World.BackgroundColor;
+            return new ApiColor(color.R, color.G, color.B);
+        }
+        set {
+            if (_sim == null)
+                return;
+
+            _sim.World.BackgroundColor = new SimColor(value.R, value.G, value.B);
+        }
+    }
+
+    public SimulationMode Mode {
+        get {
+            if (_sim == null)
+                return SimulationMode.SynchronousCA;
+
+            return _sim.Mode;
         }
     }
 
@@ -171,9 +241,5 @@ internal class API(Simulation? sim) : ISimLabApi {
 
         return GetPlugInMethodParameters(phaseName);
     }
-    
-    // TODO: This is just a test method. Remove later.
-    public void Test(string callOrigin) {
-        Console.WriteLine($"Hello from API method Test (call from {callOrigin}).");
-    }
+
 }

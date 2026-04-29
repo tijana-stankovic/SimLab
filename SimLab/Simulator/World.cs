@@ -1,9 +1,10 @@
 using SimLab.Configuration;
+using SimLabApi;
 using SimColor = SimLab.Simulator.Color;
 
 namespace SimLab.Simulator;
 
-internal class World {
+internal class World : IGlobals {
     // default colors if not specified in config
     private static readonly SimColor s_defaultForegroundColor = new(0, 255, 0); // green
     private static readonly SimColor s_defaultBackgroundColor = new(0, 0, 0); // black

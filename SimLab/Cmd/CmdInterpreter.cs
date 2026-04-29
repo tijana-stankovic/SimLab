@@ -1,3 +1,4 @@
+using SimLabApi;
 using SimLab.ApiImplementation;
 using SimLab.Configuration;
 using SimLab.Simulator;

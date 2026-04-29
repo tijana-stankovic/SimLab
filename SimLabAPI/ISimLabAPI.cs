@@ -32,12 +32,15 @@ public interface ISimLabApi {
     bool MoveCell(int fromX, int fromY, int toX, int toY);
     bool MoveCell(int fromX, int fromY, int fromZ, int toX, int toY, int toZ);
 
-
+    // world properties
     long Cycle { get; }
+    IGlobals Globals { get; }
+    int Space { get; }
+    int[] Dimensions { get; }
+    Color ForegroundColor { get; set; }
+    Color BackgroundColor { get; set; }
+    SimulationMode Mode { get; }
 
     public string[] GetPlugInMethodParameters(PhaseName simulationPhase);
     public string[] GetPlugInMethodParameters(string simulationPhase);
-
-    // TODO: This is just a test method. Remove later.
-    void Test(string callOrigin);
 }
