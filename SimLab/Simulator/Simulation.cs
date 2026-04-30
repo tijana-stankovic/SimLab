@@ -125,8 +125,22 @@ internal class Simulation {
         _currentCell = null;
     }
 
+    // get cell at position from THE CURRENT STATE of the world, 
+    // return null if no cell exists at that position
     public bool TryGetCell(Position pos, out CellHandle? handle) {
         if (ReadBuffer.TryGetValue(pos, out var cell)) {
+            handle = new CellHandle(pos, cell);
+            return true;
+        }
+
+        handle = null;
+        return false;
+    }
+
+    // get cell at position from THE NEXT STATE of the world, 
+    // return null if no cell exists at that position
+    public bool TryGetCellNext(Position pos, out CellHandle? handle) {
+        if (WriteBuffer.TryGetValue(pos, out var cell)) {
             handle = new CellHandle(pos, cell);
             return true;
         }

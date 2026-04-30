@@ -1,4 +1,5 @@
-﻿using SimLabApi;
+﻿using System.Net.NetworkInformation;
+using SimLabApi;
 
 namespace SimLabECA_2D;
 
@@ -22,6 +23,10 @@ public class ECA_2D {
 
     public static void Initialization(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA initialization...");
+
+        // set the color of the newly created cells
+        api.ForegroundColor = new Color(0, 255, 255);
+
         _currentY = 0;
         _nextActivePositions.Clear();
 
@@ -74,11 +79,15 @@ public class ECA_2D {
             }
         }
 
+        SaveState(api);
+
         Console.WriteLine($"    [Plug-in] ECA configured. Interval=[{_fromX},{_toX}], Rule={_ruleNumber}, Num of initial 1 ={initialActivePositions.Count}");
     }
 
     public static void PreCycle(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA precycle...");
+
+        RestoreState(api);
 
         _nextActivePositions.Clear();
 
@@ -97,6 +106,7 @@ public class ECA_2D {
 
     public static void ProcessWorld(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA processing world...");
+
         int nextY = _currentY + 1;
 
         for (int x = _fromX; x <= _toX; x++) {
@@ -107,7 +117,16 @@ public class ECA_2D {
             }
         }
 
+        for (int x = _fromX; x <= _toX; x++) {
+            ICellHandle? cellHandle = api.TryGetCellNext(x, _currentY, 0);
+            if (cellHandle != null) {
+                cellHandle.Cell.Color = new Color(255, 0, 0);
+            }
+        }
+
         _currentY = nextY;
+
+        SaveState(api);
     }
 
     private static (int fromX, int toX) ParseInterval(string line) {
@@ -141,5 +160,19 @@ public class ECA_2D {
         }
 
         return api.TryGetCell(x, y, 0) != null ? 1 : 0;
+    }
+
+    private static void SaveState(ISimLabApi api) {
+        api.Globals["from"] = (float)_fromX;
+        api.Globals["to"] = (float)_toX;
+        api.Globals["rule"] = (float)_ruleNumber;
+        api.Globals["current"] = (float)_currentY;
+    }
+
+    private static void RestoreState(ISimLabApi api) {
+        _fromX = (int)api.Globals["from"];
+        _toX = (int)api.Globals["to"];
+        _ruleNumber = (int)api.Globals["rule"];
+        _currentY = (int)api.Globals["current"];
     }
 }

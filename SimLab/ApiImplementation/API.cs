@@ -157,6 +157,20 @@ internal class API(Simulation? sim) : ISimLabApi {
         return TryGetCell(new ApiPosition(x, y, z));
     }
 
+    public ICellHandle? TryGetCellNext(ApiPosition pos) {
+        if (_sim == null)
+            return null;
+
+        if (_sim.TryGetCellNext(ToSimulatorPosition(pos), out var handle))
+            return handle;
+
+        return null;
+    }
+
+    public ICellHandle? TryGetCellNext(int x, int y, int z = 0) {
+        return TryGetCellNext(new ApiPosition(x, y, z));
+    }
+
     public ICellHandle? GetCurrentCell() {
         if (_sim == null)
             return null;

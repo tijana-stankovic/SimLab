@@ -22,6 +22,8 @@ public interface ISimLabApi {
     // cell management methods
     ICellHandle? TryGetCell(Position pos);
     ICellHandle? TryGetCell(int x, int y, int z = 0);
+    ICellHandle? TryGetCellNext(Position pos);
+    ICellHandle? TryGetCellNext(int x, int y, int z = 0);
     ICellHandle? GetCurrentCell();
     ICellHandle? AddCell(Position pos);
     ICellHandle? AddCell(int x, int y, int z = 0);
