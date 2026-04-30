@@ -72,21 +72,26 @@ public class ECA {
             }
         }
 
+        SaveState(api);
+
         Console.WriteLine($"    [Plug-in] ECA configured. Interval=[{_fromX},{_toX}], Rule={_ruleNumber}, Num of initial 1 ={initialActivePositions.Count}");
     }
 
     public static void PreCycle(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA precycle...");
 
+        RestoreState(api);
+
         _nextActivePositions.Clear();
 
         for (int x = _fromX; x <= _toX; x++) {
+            // based on computeNextRow() function from https://blakecrosley.com/blog/rule-110
             int left = GetCurrentState(api, x - 1);
             int center = GetCurrentState(api, x);
             int right = GetCurrentState(api, x + 1);
-
             int pattern = (left << 2) | (center << 1) | right;
             bool nextValueIsOne = ((_ruleNumber >> pattern) & 1) == 1;
+
             if (nextValueIsOne) {
                 _nextActivePositions.Add(x);
             }
@@ -106,6 +111,8 @@ public class ECA {
                 api.AddCell(x, 0, 0);
             }
         }
+
+        SaveState(api);
     }
 
     private static (int fromX, int toX) ParseInterval(string line) {
@@ -139,5 +146,17 @@ public class ECA {
         }
 
         return api.TryGetCell(x, 0, 0) != null ? 1 : 0;
+    }
+
+    private static void SaveState(ISimLabApi api) {
+        api.Globals["from"] = (float)_fromX;
+        api.Globals["to"] = (float)_toX;
+        api.Globals["rule"] = (float)_ruleNumber;
+    }
+
+    private static void RestoreState(ISimLabApi api) {
+        _fromX = (int)api.Globals["from"];
+        _toX = (int)api.Globals["to"];
+        _ruleNumber = (int)api.Globals["rule"];
     }
 }

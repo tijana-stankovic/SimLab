@@ -1,12 +1,11 @@
 {
-    "uid": "GOL10x10",
-    "name": "Game Of Life World 10x10",
+    "uid": "GOL50x50",
+    "name": "Game Of Life World 50x50",
     "space": 2,
-    "dimensions": [10, 10],
-    "characteristics": [],
+    "dimensions": [50, 50],
     "mode": "SynchronousCA",
-    // "background": [255, 255, 0],
     "foreground": [255, 0, 0],
+
     "initialization": {
         "method": "SimLabGOL.dll;SimLabGOL.GameOfLife;Initialization",
         "parameters": ["GOL.txt"]

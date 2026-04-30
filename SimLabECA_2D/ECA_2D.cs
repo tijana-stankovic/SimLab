@@ -92,12 +92,13 @@ public class ECA_2D {
         _nextActivePositions.Clear();
 
         for (int x = _fromX; x <= _toX; x++) {
+            // based on computeNextRow() function from https://blakecrosley.com/blog/rule-110
             int left = GetCurrentState(api, x - 1, _currentY);
             int center = GetCurrentState(api, x, _currentY);
             int right = GetCurrentState(api, x + 1, _currentY);
-
             int pattern = (left << 2) | (center << 1) | right;
             bool nextValueIsOne = ((_ruleNumber >> pattern) & 1) == 1;
+
             if (nextValueIsOne) {
                 _nextActivePositions.Add(x);
             }

@@ -3,7 +3,7 @@
     "name": "Elementary Cellular Automaton World (0-100, rule 22)",
     "space": 1,
     "dimensions": [100],
-    "characteristics": [],
+    "globals": ["from", "to", "rule"],
     "mode": "SynchronousCA",
     "initialization": {
         "method": "SimLabECA.dll;SimLabECA.ECA;Initialization",
