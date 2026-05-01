@@ -697,6 +697,10 @@ internal class CmdInterpreter {
             Simulation.World.LastCycle = null;
             Simulation.World.NextCellId = 1;
             Simulation.World.LastViewedFrame = null;
+
+            if (!Database.SaveGlobalInitials(worldId, Simulation.World, out string? saveInitialGlobalsError)) {
+                View.Print($"[WORLD ADD] Warning: world was added, but saving initial global values failed: {saveInitialGlobalsError}");
+            }
         }
     }
 
@@ -742,6 +746,11 @@ internal class CmdInterpreter {
                     if (!BuildFrameBufferFromDatabaseHistory(worldId, cycleNumber, lastViewedFrame, nextCellId, worldCfg, out string? loadHistoryError)) {
                         FrameBuffer = null;
                         View.Print($"[WORLD LOAD] Warning: last state restored, but failed to build visualization frame history: {loadHistoryError}");
+                    }
+                } else {
+                    if (!Database.LoadGlobalInitials(worldId, Simulation.World, out string? loadInitialGlobalsError)) {
+                        View.Print($"[WORLD LOAD] World definition loaded, but failed to restore initial global values: {loadInitialGlobalsError}");
+                        return false;
                     }
                 }
             }

@@ -55,6 +55,16 @@ CREATE UNIQUE INDEX ux_global_characteristic_world_name_ci ON global_characteris
 -- Enforce unique order position of global characteristics within a world
 CREATE UNIQUE INDEX ux_global_characteristic_world_ord ON global_characteristic (world, ord);
 
+-- Create global_initial table (initial global values before the first saved cycle)
+CREATE TABLE global_initial (
+    world                   integer NOT NULL REFERENCES world(id) ON DELETE CASCADE,
+    global_characteristic   integer NOT NULL REFERENCES global_characteristic(id) ON DELETE CASCADE,
+    value                   real NOT NULL,
+    PRIMARY KEY (world, global_characteristic)
+);
+
+CREATE INDEX ix_global_initial_global_characteristic ON global_initial (global_characteristic);
+
 -- Create characteristic table (ordered cell characteristic definitions per world)
 CREATE TABLE characteristic (
     id      integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

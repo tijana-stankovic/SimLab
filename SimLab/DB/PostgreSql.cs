@@ -1114,4 +1114,162 @@ internal class PostgreSql(string connectionString) : IDatabase {
             return false;
         }
     }
+
+    // Save initial global values for the world (state before first saved cycle).
+    public bool SaveGlobalInitials(int worldId, World world, out string? error) {
+        if (!IsConnected) {
+            error = "Database is not connected.";
+            return false;
+        }
+
+        if (worldId <= 0) {
+            error = $"Invalid world ID '{worldId}'.";
+            return false;
+        }
+
+        if (!Cache.WorldId.HasValue || Cache.WorldId.Value != worldId) {
+            error = "World definition cache is not ready for this world. Add or load world definition before saving initial globals.";
+            return false;
+        }
+
+        if (Cache.GlobalIdByOrd.Length != Globals.Count) {
+            error = "Global characteristic cache is not consistent with loaded world definition.";
+            return false;
+        }
+
+        try {
+            using var connection = DataSource!.OpenConnection();
+            using var transaction = connection.BeginTransaction();
+
+            try {
+                using (var deleteCommand = new NpgsqlCommand(@"
+                    DELETE FROM global_initial
+                    WHERE world = @world_id", connection, transaction)) {
+                    deleteCommand.Parameters.AddWithValue("world_id", worldId);
+                    deleteCommand.ExecuteNonQuery();
+                }
+
+                using (var insertCommand = new NpgsqlCommand(@"
+                    INSERT INTO global_initial (world, global_characteristic, value)
+                    VALUES (@world, @global_characteristic, @value)", connection, transaction)) {
+
+                    var worldParameter = insertCommand.Parameters.Add("world", NpgsqlTypes.NpgsqlDbType.Integer);
+                    var globalCharacteristicParameter = insertCommand.Parameters.Add("global_characteristic", NpgsqlTypes.NpgsqlDbType.Integer);
+                    var valueParameter = insertCommand.Parameters.Add("value", NpgsqlTypes.NpgsqlDbType.Real);
+
+                    worldParameter.Value = worldId;
+
+                    foreach (string globalName in Globals.GetNames()) {
+                        if (!Cache.TryGetGlobalId(globalName, out int globalId)) {
+                            throw new Exception($"Missing global characteristic DB mapping for name '{globalName}'.");
+                        }
+
+                        globalCharacteristicParameter.Value = globalId;
+                        valueParameter.Value = world[globalName];
+                        insertCommand.ExecuteNonQuery();
+                    }
+                }
+
+                transaction.Commit();
+                error = null;
+                return true;
+            } catch (Exception ex) {
+                transaction.Rollback();
+                error = ex.Message;
+                return false;
+            }
+        } catch (Exception ex) {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    // Load initial global values for the world (state before first saved cycle).
+    public bool LoadGlobalInitials(int worldId, World world, out string? error) {
+        if (!IsConnected) {
+            error = "Database is not connected.";
+            return false;
+        }
+
+        if (worldId <= 0) {
+            error = $"Invalid world ID '{worldId}'.";
+            return false;
+        }
+
+        if (!Cache.WorldId.HasValue || Cache.WorldId.Value != worldId) {
+            error = "World definition cache is not ready for this world. Load world definition before loading initial globals.";
+            return false;
+        }
+
+        if (Cache.GlobalIdByOrd.Length != Globals.Count) {
+            error = "Global characteristic cache is not consistent with loaded world definition.";
+            return false;
+        }
+
+        string[] globalNamesByOrd = new string[Globals.Count];
+        int globalNameCount = 0;
+        foreach (string globalName in Globals.GetNames()) {
+            if (globalNameCount >= globalNamesByOrd.Length) {
+                error = "Global names count exceeds expected globals count.";
+                return false;
+            }
+
+            globalNamesByOrd[globalNameCount] = globalName;
+            globalNameCount++;
+        }
+
+        if (globalNameCount != Globals.Count) {
+            error = "Global names count does not match expected globals count.";
+            return false;
+        }
+
+        var globalNameById = new Dictionary<int, string>();
+        for (int ord = 0; ord < Cache.GlobalIdByOrd.Length; ord++) {
+            globalNameById[Cache.GlobalIdByOrd[ord]] = globalNamesByOrd[ord];
+        }
+
+        try {
+            using var connection = DataSource!.OpenConnection();
+            using var command = new NpgsqlCommand(@"
+                SELECT global_characteristic, value
+                FROM global_initial
+                WHERE world = @world_id
+                ORDER BY global_characteristic", connection);
+
+            command.Parameters.AddWithValue("world_id", worldId);
+
+            int loadedCount = 0;
+            var loadedGlobalIds = new HashSet<int>();
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read()) {
+                int globalId = reader.GetInt32(0);
+                float globalValue = reader.GetFloat(1);
+
+                if (!loadedGlobalIds.Add(globalId)) {
+                    error = $"Duplicate initial global value for global characteristic id '{globalId}'.";
+                    return false;
+                }
+
+                if (!globalNameById.TryGetValue(globalId, out string? globalName)) {
+                    error = $"Unknown global characteristic id '{globalId}' while loading initial globals.";
+                    return false;
+                }
+
+                world[globalName] = globalValue;
+                loadedCount++;
+            }
+
+            if (loadedCount != Globals.Count) {
+                error = $"Initial global values are incomplete for world id={worldId}. Expected {Globals.Count}, loaded {loadedCount}.";
+                return false;
+            }
+
+            error = null;
+            return true;
+        } catch (Exception ex) {
+            error = ex.Message;
+            return false;
+        }
+    }
 }
