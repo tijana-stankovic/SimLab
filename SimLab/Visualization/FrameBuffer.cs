@@ -1,4 +1,5 @@
 using SimLab.Simulator;
+using System.Numerics;
 
 namespace SimLab.Visualization;
 
@@ -7,6 +8,12 @@ internal class FrameBuffer {
     public int Count => _frames.Count;
     public bool HasFrames => _frames.Count > 0;
     private int _lastViewedFrameIndex = -1;
+
+    // Default camera state used on first visualization call.
+    private Vector3 _cameraTarget = Vector3.Zero;
+    private float _cameraDistance = 50f; // target distance (how far you are from the target)
+    private float _cameraYaw = -MathF.PI * 0.25f; // initial azimuth (-45 degrees)
+    private float _cameraPitch = MathF.PI * 0.25f; // initial elevation (45 degrees)
 
     public int WorldSpace { get; }
     public int[] WorldDimensions { get; }
@@ -56,5 +63,19 @@ internal class FrameBuffer {
         } else {
             _lastViewedFrameIndex = index;
         }
+    }
+
+    public void GetCameraState(out Vector3 target, out float distance, out float yaw, out float pitch) {
+        target = _cameraTarget;
+        distance = _cameraDistance;
+        yaw = _cameraYaw;
+        pitch = _cameraPitch;
+    }
+
+    public void SetCameraState(Vector3 target, float distance, float yaw, float pitch) {
+        _cameraTarget = target;
+        _cameraDistance = distance;
+        _cameraYaw = yaw;
+        _cameraPitch = pitch;
     }
 }

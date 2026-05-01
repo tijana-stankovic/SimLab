@@ -30,10 +30,15 @@ internal class Visualizer {
         Raylib.SetTargetFPS(60);
 
         // custom camera settings
-        Vector3 target = Vector3.Zero;
-        float distance = 50f;                // target distance (how far you are from the target)
-        float yaw = -MathF.PI * 0.25f;       // initial azimuth (-45°)
-        float pitch = MathF.PI * 0.25f;      // initial elevation (45°)
+        Vector3 target;
+        float distance;
+        float yaw;
+        float pitch;
+
+        // load camera state from frame buffer:
+        // first SHOW call -> default values
+        // next SHOW calls -> last saved camera position
+        frameBuffer.GetCameraState(out target, out distance, out yaw, out pitch);
 
         // this initial camera position is not really important, 
         // because the camera will be updated in the first frame of the visualization loop
@@ -63,6 +68,7 @@ internal class Visualizer {
                 DrawCurrentFrame(frameBuffer, currentFrameIndex, camera);
             }
         } finally {
+            frameBuffer.SetCameraState(target, distance, yaw, pitch);
             Raylib.CloseWindow();
         }
 
