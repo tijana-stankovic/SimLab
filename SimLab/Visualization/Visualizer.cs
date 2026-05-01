@@ -39,6 +39,9 @@ internal class Visualizer {
         // first SHOW call -> default values
         // next SHOW calls -> last saved camera position
         frameBuffer.GetCameraState(out target, out distance, out yaw, out pitch);
+        if (!frameBuffer.HasSavedCameraState()) {
+            ApplyAutoFitCamera(frameBuffer, currentFrame, ref target, ref distance);
+        }
 
         // this initial camera position is not really important, 
         // because the camera will be updated in the first frame of the visualization loop
@@ -54,6 +57,13 @@ internal class Visualizer {
         try {
             while (!Raylib.WindowShouldClose()) {
                 UpdateCurrentFrameIndex(frameBuffer, ref currentFrameIndex);
+
+                if (Raylib.IsKeyPressed(KeyboardKey.R)) {
+                    Frame frame = frameBuffer.GetFrame(currentFrameIndex)!;
+                    ApplyAutoFitCamera(frameBuffer, frame, ref target, ref distance);
+                    yaw = -MathF.PI * 0.25f;   // initial azimuth (-45°)
+                    pitch = MathF.PI * 0.25f;  // initial elevation (45°)
+                }
 
                 // RayLib camera update:
                 // Raylib.UpdateCamera(ref camera, CameraMode.Free);
@@ -226,6 +236,56 @@ internal class Visualizer {
             Raylib.DrawText("LEFT/RIGHT = frame navigation (with Shift for faster navigation)", 10, 100, 20, RayColor.LightGray);
             Raylib.DrawText("ESC = close visualization", 10, 130, 20, RayColor.LightGray);
             Raylib.DrawText("H = HUD display on/off", 10, 160, 20, RayColor.LightGray);
+            Raylib.DrawText("R = reset camera view", 10, 190, 20, RayColor.LightGray);
         }
+    }
+
+    private static void ApplyAutoFitCamera(FrameBuffer frameBuffer, Frame frame, ref Vector3 target, ref float distance) {
+        int worldWidth = frameBuffer.WorldDimensions.Length > 0 ? frameBuffer.WorldDimensions[0] : 10;
+        int worldDepth;
+        int worldHeight;
+
+        if (frameBuffer.WorldSpace == 2) {
+            worldDepth = frameBuffer.WorldDimensions.Length > 1 ? frameBuffer.WorldDimensions[1] : 10;
+            worldHeight = 1;
+        } else {
+            worldHeight = frameBuffer.WorldDimensions.Length > 1 ? frameBuffer.WorldDimensions[1] : 10;
+            worldDepth = frameBuffer.WorldDimensions.Length > 2 ? frameBuffer.WorldDimensions[2] : 10;
+        }
+
+        int minX = 0;
+        int minY = 0;
+        int minZ = 0;
+        int maxX = Math.Max(worldWidth, 10); // 10 is the minimum world width
+        int maxY = frameBuffer.WorldSpace == 3 ? Math.Max(worldHeight, 10) : 1;
+        int maxZ = Math.Max(worldDepth, 10); // 10 is the minimum world depth
+
+        foreach (FrameCell cell in frame.Cells) {
+            Position pos = cell.Position;
+
+            minX = Math.Min(minX, pos.X);
+            maxX = Math.Max(maxX, pos.X + 1);
+
+            if (frameBuffer.WorldSpace == 2) {
+                minZ = Math.Min(minZ, pos.Y);
+                maxZ = Math.Max(maxZ, pos.Y + 1);
+            } else {
+                minY = Math.Min(minY, pos.Y);
+                maxY = Math.Max(maxY, pos.Y + 1);
+                minZ = Math.Min(minZ, pos.Z);
+                maxZ = Math.Max(maxZ, pos.Z + 1);
+            }
+        }
+
+        target = new Vector3((minX + maxX) / 2f, (minY + maxY) / 2f, (minZ + maxZ) / 2f);
+
+        float dx = maxX - minX;
+        float dy = maxY - minY;
+        float dz = maxZ - minZ;
+        float diagonal = MathF.Sqrt(dx*dx + dy*dy + dz*dz);
+        float radius = diagonal / 2f;
+        float fovYRadians = 45f * (MathF.PI / 180f);
+        float fittedDistance = radius / MathF.Tan(fovYRadians / 2f);
+        distance = MathF.Max(fittedDistance * 1.2f, 1.0f);
     }
 }

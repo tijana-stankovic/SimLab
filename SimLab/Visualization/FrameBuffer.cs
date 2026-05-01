@@ -8,6 +8,7 @@ internal class FrameBuffer {
     public int Count => _frames.Count;
     public bool HasFrames => _frames.Count > 0;
     private int _lastViewedFrameIndex = -1;
+    private bool _hasSavedCameraState = false;
 
     // Default camera state used on first visualization call.
     private Vector3 _cameraTarget = Vector3.Zero;
@@ -72,10 +73,15 @@ internal class FrameBuffer {
         pitch = _cameraPitch;
     }
 
+    public bool HasSavedCameraState() {
+        return _hasSavedCameraState;
+    }
+
     public void SetCameraState(Vector3 target, float distance, float yaw, float pitch) {
         _cameraTarget = target;
         _cameraDistance = distance;
         _cameraYaw = yaw;
         _cameraPitch = pitch;
+        _hasSavedCameraState = true;
     }
 }
