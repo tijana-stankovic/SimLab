@@ -104,8 +104,9 @@ internal class Simulation {
     }
 
     public bool SetCurrentCell(Position pos) {
-        if (WriteBuffer.TryGetValue(pos, out var cell)) {
-            _currentCell = new CellHandle(pos, cell);
+        Position realPos = ApplyCyclicBoundary(pos);
+        if (WriteBuffer.TryGetValue(realPos, out var cell)) {
+            _currentCell = new CellHandle(realPos, cell);
             LastApiStatus = ApiStatus.Ok;
             return true;
         }
@@ -133,8 +134,9 @@ internal class Simulation {
     // get cell at position from THE CURRENT STATE of the world, 
     // return null if no cell exists at that position
     public bool TryGetCell(Position pos, out CellHandle? handle) {
-        if (ReadBuffer.TryGetValue(pos, out var cell)) {
-            handle = new CellHandle(pos, cell);
+        Position realPos = ApplyCyclicBoundary(pos);
+        if (ReadBuffer.TryGetValue(realPos, out var cell)) {
+            handle = new CellHandle(realPos, cell);
             LastApiStatus = ApiStatus.Ok;
             return true;
         }
@@ -147,8 +149,9 @@ internal class Simulation {
     // get cell at position from THE NEXT STATE of the world, 
     // return null if no cell exists at that position
     public bool TryGetCellNext(Position pos, out CellHandle? handle) {
-        if (WriteBuffer.TryGetValue(pos, out var cell)) {
-            handle = new CellHandle(pos, cell);
+        Position realPos = ApplyCyclicBoundary(pos);
+        if (WriteBuffer.TryGetValue(realPos, out var cell)) {
+            handle = new CellHandle(realPos, cell);
             LastApiStatus = ApiStatus.Ok;
             return true;
         }
@@ -159,19 +162,21 @@ internal class Simulation {
     }
 
     public CellHandle? AddCell(Position pos, Cell cell) {
-        if (WriteBuffer.ContainsKey(pos)) {
+        Position realPos = ApplyCyclicBoundary(pos);
+        if (WriteBuffer.ContainsKey(realPos)) {
             LastApiStatus = ApiStatus.PositionOccupied;
             return null; // cell already exists at this position
         }
 
         cell.SetId(_nextCellId++);
-        WriteBuffer[pos] = cell;
+        WriteBuffer[realPos] = cell;
         LastApiStatus = ApiStatus.Ok;
-        return new CellHandle(pos, cell);
+        return new CellHandle(realPos, cell);
     }
 
     public bool RemoveCell(Position pos) {
-        bool removed = WriteBuffer.Remove(pos);
+        Position realPos = ApplyCyclicBoundary(pos);
+        bool removed = WriteBuffer.Remove(realPos);
         LastApiStatus = removed ? ApiStatus.Ok : ApiStatus.CellNotFound;
         return removed;
     }
@@ -195,18 +200,21 @@ internal class Simulation {
 
     public bool MoveCell(Position from, Position to)
     {
-        if (!WriteBuffer.TryGetValue(from, out var cell)) {
+        Position realFrom = ApplyCyclicBoundary(from);
+        Position realTo = ApplyCyclicBoundary(to);
+
+        if (!WriteBuffer.TryGetValue(realFrom, out var cell)) {
             LastApiStatus = ApiStatus.CellNotFound;
             return false;
         }
 
-        if (WriteBuffer.ContainsKey(to)) {
+        if (WriteBuffer.ContainsKey(realTo)) {
             LastApiStatus = ApiStatus.DestinationOccupied;
             return false; // destination is occupied
         }
 
-        WriteBuffer.Remove(from);
-        WriteBuffer[to] = cell;
+        WriteBuffer.Remove(realFrom);
+        WriteBuffer[realTo] = cell;
         LastApiStatus = ApiStatus.Ok;
 
         return true;
@@ -261,10 +269,11 @@ internal class Simulation {
     }
 
     public IEnumerable<Position> GetNeighborPositions(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
+        Position realPos = ApplyCyclicBoundary(pos);
         LastApiStatus = ApiStatus.Ok;
         return World.Space == 2
-            ? GetNeighborPositions2D(pos, type)
-            : GetNeighborPositions3D(pos, type);
+            ? GetNeighborPositions2D(realPos, type)
+            : GetNeighborPositions3D(realPos, type);
     }
 
     public IEnumerable<CellHandle> GetNeighbors(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
@@ -293,9 +302,14 @@ internal class Simulation {
         var offsets = type == NeighborhoodType.VonNeumann
             ? s_vonNeumannOffsets2D
             : s_mooreOffsets2D;
+        HashSet<Position> uniquePositions = [];
 
         foreach (var (dx, dy) in offsets) {
-            yield return new Position(pos.X + dx, pos.Y + dy, pos.Z);
+            Position neighborPos = new(pos.X + dx, pos.Y + dy, pos.Z);
+            Position realPos = ApplyCyclicBoundary(neighborPos);
+            if (uniquePositions.Add(realPos)) {
+                yield return realPos;
+            }
         }
     }
 
@@ -303,9 +317,14 @@ internal class Simulation {
         var offsets = type == NeighborhoodType.VonNeumann
             ? s_vonNeumannOffsets3D
             : s_mooreOffsets3D;
+        HashSet<Position> uniquePositions = [];
 
         foreach (var (dx, dy, dz) in offsets) {
-            yield return new Position(pos.X + dx, pos.Y + dy, pos.Z + dz);
+            Position neighborPos = new(pos.X + dx, pos.Y + dy, pos.Z + dz);
+            Position realPos = ApplyCyclicBoundary(neighborPos);
+            if (uniquePositions.Add(realPos)) {
+                yield return realPos;
+            }
         }
     }
 
@@ -324,5 +343,30 @@ internal class Simulation {
         }
 
         return offsets.ToArray();
+    }
+
+    private Position ApplyCyclicBoundary(Position pos) {
+        int x = pos.X;
+        int y = pos.Y;
+        int z = pos.Z;
+
+        if (World.Dimensions.Length > 0 && World.Dimensions[0] > 0 && World.BoundaryX == BoundaryMode.Cyclic)
+            x = WrapCoordinate(x, World.Dimensions[0]);
+
+        if (World.Dimensions.Length > 1 && World.Dimensions[1] > 0 && World.BoundaryY == BoundaryMode.Cyclic)
+            y = WrapCoordinate(y, World.Dimensions[1]);
+
+        if (World.Dimensions.Length > 2 && World.Dimensions[2] > 0 && World.BoundaryZ == BoundaryMode.Cyclic)
+            z = WrapCoordinate(z, World.Dimensions[2]);
+
+        return new Position(x, y, z);
+    }
+
+    private static int WrapCoordinate(int value, int dimension) {
+        int wrapped = value % dimension;
+        if (wrapped < 0)
+            wrapped += dimension;
+
+        return wrapped;
     }
 }
