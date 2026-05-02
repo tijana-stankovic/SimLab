@@ -274,6 +274,8 @@ internal class CmdInterpreter {
             Characteristics = Cell.MergeWithSystemCharacteristics(worldCfg.Characteristics),
             Globals = SimWorld.MergeWithSystemGlobals(worldCfg.Globals),
             Mode = worldCfg.Mode,
+            Boundary = worldCfg.Boundary,
+            Boundaries = worldCfg.Boundaries,
             Foreground = worldCfg.Foreground,
             Background = worldCfg.Background,
             Initialization = worldCfg.Initialization,

@@ -8,6 +8,8 @@ internal class WorldCfg {
     public string[] Characteristics { get; init; } = [];
     public string[] Globals { get; init; } = [];
     public string? Mode { get; init; }
+    public string? Boundary { get; init; }
+    public string[]? Boundaries { get; init; }
     public int[]? Foreground { get; init; }
     public int[]? Background { get; init; }
     public MethodCfg? Initialization { get; init; }

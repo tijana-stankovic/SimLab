@@ -24,6 +24,9 @@ internal class World : IGlobals {
     internal const string BackgroundRName = "_background_r";
     internal const string BackgroundGName = "_background_g";
     internal const string BackgroundBName = "_background_b";
+    internal const string BoundaryXName = "_boundary_x";
+    internal const string BoundaryYName = "_boundary_y";
+    internal const string BoundaryZName = "_boundary_z";
 
     // list of system global characteristics names
     private static readonly string[] s_systemGlobalNames = [
@@ -32,7 +35,10 @@ internal class World : IGlobals {
         ForegroundBName,
         BackgroundRName,
         BackgroundGName,
-        BackgroundBName
+        BackgroundBName,
+        BoundaryXName,
+        BoundaryYName,
+        BoundaryZName
     ];
 
     // global values (user plus system at the end)
@@ -51,6 +57,7 @@ internal class World : IGlobals {
         _globalValues = new float[Globals.Count];
         ForegroundColor = BuildColorOrDefault(config.Foreground, s_defaultForegroundColor);
         BackgroundColor = BuildColorOrDefault(config.Background, s_defaultBackgroundColor);
+        InitializeBoundaryModes(config.Boundary, config.Boundaries);
         LastCycle = null;
         NextCellId = 1;
         LastViewedFrame = null;
@@ -107,12 +114,86 @@ internal class World : IGlobals {
         }
     }
 
+    public BoundaryMode BoundaryX {
+        get => ValueToBoundaryMode(this[BoundaryXName]);
+        set => this[BoundaryXName] = (int)value;
+    }
+
+    public BoundaryMode BoundaryY {
+        get => ValueToBoundaryMode(this[BoundaryYName]);
+        set => this[BoundaryYName] = (int)value;
+    }
+
+    public BoundaryMode BoundaryZ {
+        get => ValueToBoundaryMode(this[BoundaryZName]);
+        set => this[BoundaryZName] = (int)value;
+    }
+
     private static SimColor BuildColorOrDefault(int[]? rgb, SimColor defaultColor) {
         if (rgb == null || rgb.Length < 3) {
             return defaultColor;
         }
 
         return new SimColor((byte)rgb[0], (byte)rgb[1], (byte)rgb[2]);
+    }
+
+    private void InitializeBoundaryModes(string? boundary, string[]? boundaries) {
+        BoundaryX = BoundaryMode.Void;
+        BoundaryY = BoundaryMode.Void;
+        BoundaryZ = BoundaryMode.Void;
+
+        if (boundaries != null) {
+            if (boundaries.Length > 0 && TryParseBoundaryMode(boundaries[0], out BoundaryMode boundaryX)) {
+                BoundaryX = boundaryX;
+            }
+
+            if (boundaries.Length > 1 && TryParseBoundaryMode(boundaries[1], out BoundaryMode boundaryY)) {
+                BoundaryY = boundaryY;
+            }
+
+            if (boundaries.Length > 2 && TryParseBoundaryMode(boundaries[2], out BoundaryMode boundaryZ)) {
+                BoundaryZ = boundaryZ;
+            }
+        }
+
+        if (TryParseBoundaryMode(boundary, out BoundaryMode globalBoundary)) {
+            BoundaryX = globalBoundary;
+            BoundaryY = globalBoundary;
+            BoundaryZ = globalBoundary;
+        }
+    }
+
+    private static bool TryParseBoundaryMode(string? boundaryText, out BoundaryMode boundaryMode) {
+        boundaryMode = BoundaryMode.Void;
+        if (string.IsNullOrWhiteSpace(boundaryText)) {
+            return false;
+        }
+
+        switch (boundaryText.Trim().ToUpperInvariant()) {
+            case "VOID":
+                boundaryMode = BoundaryMode.Void;
+                return true;
+            case "CYCLIC":
+                boundaryMode = BoundaryMode.Cyclic;
+                return true;
+            case "BLOCKING":
+                boundaryMode = BoundaryMode.Blocking;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static BoundaryMode ValueToBoundaryMode(float value) {
+        int modeValue = (int)value;
+        switch (modeValue) {
+            case (int)BoundaryMode.Cyclic:
+                return BoundaryMode.Cyclic;
+            case (int)BoundaryMode.Blocking:
+                return BoundaryMode.Blocking;
+            default:
+                return BoundaryMode.Void;
+        }
     }
 
     internal static string[] MergeWithSystemGlobals(string[] globals) {
