@@ -42,6 +42,7 @@ internal class Simulation {
     private Dictionary<Position, Cell> WriteBuffer => Mode == SimulationMode.Asynchronous ? _cellsCurrent : _cellsNext;
 
     private CellHandle? _currentCell;
+    public ApiStatus LastApiStatus { get; set; } = ApiStatus.Ok;
 
     public Simulation(World world) {
         World = world;
@@ -105,19 +106,23 @@ internal class Simulation {
     public bool SetCurrentCell(Position pos) {
         if (WriteBuffer.TryGetValue(pos, out var cell)) {
             _currentCell = new CellHandle(pos, cell);
+            LastApiStatus = ApiStatus.Ok;
             return true;
         }
 
         ClearCurrentCell();
+        LastApiStatus = ApiStatus.CellNotFound;
         return false;
     }
 
     public bool SetCurrentCell(CellHandle cellHandle) {
         _currentCell = cellHandle;
+        LastApiStatus = ApiStatus.Ok;
         return true;
     }
 
     public CellHandle? GetCurrentCell() {
+        LastApiStatus = _currentCell == null ? ApiStatus.CurrentCellNotSet : ApiStatus.Ok;
         return _currentCell;
     }
 
@@ -130,10 +135,12 @@ internal class Simulation {
     public bool TryGetCell(Position pos, out CellHandle? handle) {
         if (ReadBuffer.TryGetValue(pos, out var cell)) {
             handle = new CellHandle(pos, cell);
+            LastApiStatus = ApiStatus.Ok;
             return true;
         }
 
         handle = null;
+        LastApiStatus = ApiStatus.CellNotFound;
         return false;
     }
 
@@ -142,33 +149,45 @@ internal class Simulation {
     public bool TryGetCellNext(Position pos, out CellHandle? handle) {
         if (WriteBuffer.TryGetValue(pos, out var cell)) {
             handle = new CellHandle(pos, cell);
+            LastApiStatus = ApiStatus.Ok;
             return true;
         }
 
         handle = null;
+        LastApiStatus = ApiStatus.CellNotFound;
         return false;
     }
 
     public CellHandle? AddCell(Position pos, Cell cell) {
-        if (WriteBuffer.ContainsKey(pos))
+        if (WriteBuffer.ContainsKey(pos)) {
+            LastApiStatus = ApiStatus.PositionOccupied;
             return null; // cell already exists at this position
+        }
 
         cell.SetId(_nextCellId++);
         WriteBuffer[pos] = cell;
+        LastApiStatus = ApiStatus.Ok;
         return new CellHandle(pos, cell);
     }
 
     public bool RemoveCell(Position pos) {
-        return WriteBuffer.Remove(pos);
+        bool removed = WriteBuffer.Remove(pos);
+        LastApiStatus = removed ? ApiStatus.Ok : ApiStatus.CellNotFound;
+        return removed;
     }
 
     public bool RemoveCurrentCell() {
-        if (_currentCell == null)
+        if (_currentCell == null) {
+            LastApiStatus = ApiStatus.CurrentCellNotSet;
             return false;
+        }
 
         bool removed = WriteBuffer.Remove(_currentCell.Position);
         if (removed) {
             ClearCurrentCell();
+            LastApiStatus = ApiStatus.Ok;
+        } else {
+            LastApiStatus = ApiStatus.CellNotFound;
         }
 
         return removed;
@@ -176,19 +195,25 @@ internal class Simulation {
 
     public bool MoveCell(Position from, Position to)
     {
-        if (!WriteBuffer.TryGetValue(from, out var cell))
+        if (!WriteBuffer.TryGetValue(from, out var cell)) {
+            LastApiStatus = ApiStatus.CellNotFound;
             return false;
+        }
 
-        if (WriteBuffer.ContainsKey(to))
+        if (WriteBuffer.ContainsKey(to)) {
+            LastApiStatus = ApiStatus.DestinationOccupied;
             return false; // destination is occupied
+        }
 
         WriteBuffer.Remove(from);
         WriteBuffer[to] = cell;
+        LastApiStatus = ApiStatus.Ok;
 
         return true;
     }
 
     public IEnumerable<CellHandle> GetAllCells() {
+        LastApiStatus = ApiStatus.Ok;
         return ReadBuffer.Select(pair => new CellHandle(pair.Key, pair.Value));
     }
 
@@ -236,12 +261,14 @@ internal class Simulation {
     }
 
     public IEnumerable<Position> GetNeighborPositions(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
+        LastApiStatus = ApiStatus.Ok;
         return World.Space == 2
             ? GetNeighborPositions2D(pos, type)
             : GetNeighborPositions3D(pos, type);
     }
 
     public IEnumerable<CellHandle> GetNeighbors(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
+        LastApiStatus = ApiStatus.Ok;
         foreach (Position neighborPos in GetNeighborPositions(pos, type)) {
             if (ReadBuffer.TryGetValue(neighborPos, out var cell)) {
                 yield return new CellHandle(neighborPos, cell);
@@ -250,6 +277,7 @@ internal class Simulation {
     }
 
     public int CountNeighbors(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
+        LastApiStatus = ApiStatus.Ok;
         int count = 0;
 
         foreach (Position neighborPos in GetNeighborPositions(pos, type)) {

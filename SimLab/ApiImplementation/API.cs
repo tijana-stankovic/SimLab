@@ -245,15 +245,26 @@ internal class API(Simulation? sim) : ISimLabApi {
             _ => []
         };
 
+        _sim.LastApiStatus = ApiStatus.Ok;
+
         return methodParameters;
     }
 
     public string[] GetPlugInMethodParameters(string simulationPhase) {
         if (!Phase.TryToValue(simulationPhase, out PhaseName phaseName)) {
+            if (_sim != null)
+                _sim.LastApiStatus = ApiStatus.InvalidPhaseName;
             return [];
         }
 
         return GetPlugInMethodParameters(phaseName);
+    }
+
+    public ApiStatus LastStatus() {
+        if (_sim == null)
+            return ApiStatus.NoActiveSimulation;
+
+        return _sim.LastApiStatus;
     }
 
 }
