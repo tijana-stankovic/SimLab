@@ -105,6 +105,12 @@ internal class Simulation {
 
     public bool SetCurrentCell(Position pos) {
         Position realPos = ApplyCyclicBoundary(pos);
+        if (!IsValidPosition(realPos)) {
+            ClearCurrentCell();
+            LastApiStatus = ApiStatus.OutOfWorld;
+            return false;
+        }
+
         if (WriteBuffer.TryGetValue(realPos, out var cell)) {
             _currentCell = new CellHandle(realPos, cell);
             LastApiStatus = ApiStatus.Ok;
@@ -135,6 +141,12 @@ internal class Simulation {
     // return null if no cell exists at that position
     public bool TryGetCell(Position pos, out CellHandle? handle) {
         Position realPos = ApplyCyclicBoundary(pos);
+        if (!IsValidPosition(realPos)) {
+            handle = null;
+            LastApiStatus = ApiStatus.OutOfWorld;
+            return false;
+        }
+
         if (ReadBuffer.TryGetValue(realPos, out var cell)) {
             handle = new CellHandle(realPos, cell);
             LastApiStatus = ApiStatus.Ok;
@@ -150,6 +162,12 @@ internal class Simulation {
     // return null if no cell exists at that position
     public bool TryGetCellNext(Position pos, out CellHandle? handle) {
         Position realPos = ApplyCyclicBoundary(pos);
+        if (!IsValidPosition(realPos)) {
+            handle = null;
+            LastApiStatus = ApiStatus.OutOfWorld;
+            return false;
+        }
+
         if (WriteBuffer.TryGetValue(realPos, out var cell)) {
             handle = new CellHandle(realPos, cell);
             LastApiStatus = ApiStatus.Ok;
@@ -163,6 +181,11 @@ internal class Simulation {
 
     public CellHandle? AddCell(Position pos, Cell cell) {
         Position realPos = ApplyCyclicBoundary(pos);
+        if (!IsValidPosition(realPos)) {
+            LastApiStatus = ApiStatus.OutOfWorld;
+            return null;
+        }
+
         if (WriteBuffer.ContainsKey(realPos)) {
             LastApiStatus = ApiStatus.PositionOccupied;
             return null; // cell already exists at this position
@@ -176,6 +199,11 @@ internal class Simulation {
 
     public bool RemoveCell(Position pos) {
         Position realPos = ApplyCyclicBoundary(pos);
+        if (!IsValidPosition(realPos)) {
+            LastApiStatus = ApiStatus.OutOfWorld;
+            return false;
+        }
+
         bool removed = WriteBuffer.Remove(realPos);
         LastApiStatus = removed ? ApiStatus.Ok : ApiStatus.CellNotFound;
         return removed;
@@ -201,11 +229,22 @@ internal class Simulation {
     public bool MoveCell(Position from, Position to)
     {
         Position realFrom = ApplyCyclicBoundary(from);
+        if (!IsValidPosition(realFrom)) {
+            LastApiStatus = ApiStatus.OutOfWorld;
+            return false;
+        }
+
         Position realTo = ApplyCyclicBoundary(to);
 
         if (!WriteBuffer.TryGetValue(realFrom, out var cell)) {
             LastApiStatus = ApiStatus.CellNotFound;
             return false;
+        }
+
+        if (!IsValidPosition(realTo)) {
+            WriteBuffer.Remove(realFrom);
+            LastApiStatus = ApiStatus.Ok;
+            return true;
         }
 
         if (WriteBuffer.ContainsKey(realTo)) {
@@ -270,6 +309,11 @@ internal class Simulation {
 
     public IEnumerable<Position> GetNeighborPositions(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
         Position realPos = ApplyCyclicBoundary(pos);
+        if (!IsValidPosition(realPos)) {
+            LastApiStatus = ApiStatus.OutOfWorld;
+            return [];
+        }
+
         LastApiStatus = ApiStatus.Ok;
         return World.Space == 2
             ? GetNeighborPositions2D(realPos, type)
@@ -277,7 +321,6 @@ internal class Simulation {
     }
 
     public IEnumerable<CellHandle> GetNeighbors(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
-        LastApiStatus = ApiStatus.Ok;
         foreach (Position neighborPos in GetNeighborPositions(pos, type)) {
             if (ReadBuffer.TryGetValue(neighborPos, out var cell)) {
                 yield return new CellHandle(neighborPos, cell);
@@ -286,7 +329,6 @@ internal class Simulation {
     }
 
     public int CountNeighbors(Position pos, NeighborhoodType type = NeighborhoodType.Moore) {
-        LastApiStatus = ApiStatus.Ok;
         int count = 0;
 
         foreach (Position neighborPos in GetNeighborPositions(pos, type)) {
@@ -307,7 +349,7 @@ internal class Simulation {
         foreach (var (dx, dy) in offsets) {
             Position neighborPos = new(pos.X + dx, pos.Y + dy, pos.Z);
             Position realPos = ApplyCyclicBoundary(neighborPos);
-            if (uniquePositions.Add(realPos)) {
+            if (IsValidPosition(realPos) && uniquePositions.Add(realPos)) {
                 yield return realPos;
             }
         }
@@ -322,7 +364,7 @@ internal class Simulation {
         foreach (var (dx, dy, dz) in offsets) {
             Position neighborPos = new(pos.X + dx, pos.Y + dy, pos.Z + dz);
             Position realPos = ApplyCyclicBoundary(neighborPos);
-            if (uniquePositions.Add(realPos)) {
+            if (IsValidPosition(realPos) && uniquePositions.Add(realPos)) {
                 yield return realPos;
             }
         }
@@ -368,5 +410,24 @@ internal class Simulation {
             wrapped += dimension;
 
         return wrapped;
+    }
+
+    private bool IsValidPosition(Position pos) {
+        if (World.Dimensions.Length > 0 && World.Dimensions[0] > 0) {
+            if ((pos.X < 0 || pos.X >= World.Dimensions[0]) && World.BoundaryX == BoundaryMode.Void)
+                return false;
+        }
+
+        if (World.Dimensions.Length > 1 && World.Dimensions[1] > 0) {
+            if ((pos.Y < 0 || pos.Y >= World.Dimensions[1]) && World.BoundaryY == BoundaryMode.Void)
+                return false;
+        }
+
+        if (World.Dimensions.Length > 2 && World.Dimensions[2] > 0) {
+            if ((pos.Z < 0 || pos.Z >= World.Dimensions[2]) && World.BoundaryZ == BoundaryMode.Void)
+                return false;
+        }
+
+        return true;
     }
 }
