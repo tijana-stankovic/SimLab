@@ -1,0 +1,36 @@
+{
+    "uid": "ECA_GA_3D",
+    "name": "ECA with Genetic Algorithm (3D visualization)",
+    "space": 3,
+    "dimensions": [0, 0, 0],
+    "globals": ["rules", "arrays", "width", "steps", "epsilon"],
+    "characteristics": ["rule", "layer"],
+    "mode": "SynchronousCA",
+    "foreground": [255, 0, 0],
+
+    "initialization": {
+        "method": "SimLabGA.dll;SimLabGA.ECAWithGA;Initialization",
+        "parameters": ["GA.txt"]
+    },
+    "precycle": {
+        "method": "SimLabGA.dll;SimLabGA.ECAWithGA;PreCycle"
+    },
+    "processworld": {
+        "method": "SimLabGA.dll;SimLabGA.ECAWithGA;ProcessWorld"
+    },
+    "update": {
+        "method": "SimLabGA.dll;SimLabGA.ECAWithGA;Update"
+    },
+    "evaluation": {
+        "method": "SimLabGA.dll;SimLabGA.ECAWithGA;Evaluation"
+    },
+    "selection": {
+        "method": "SimLabGA.dll;SimLabGA.ECAWithGA;Selection"
+    },
+    "reproduction": {
+        "method": "SimLabGA.dll;SimLabGA.ECAWithGA;Reproduction"
+    },
+    "postcycle": {
+        "method": "SimLabGA.dll;SimLabGA.ECAWithGA;PostCycle"
+    }
+}

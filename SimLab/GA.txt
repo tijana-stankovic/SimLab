@@ -1,0 +1,12 @@
+# ECA with GA configuration
+# R = number of rules
+# N = number of arrays
+# W = array "width" (number of elements in one array)
+# S = number of ECA steps per simulation cycle
+# Epsilon = target average error threshold (exit condition)
+
+R=10
+N=10
+W=30
+S=40
+Epsilon=0.02
