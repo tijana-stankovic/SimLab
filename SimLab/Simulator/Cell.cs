@@ -108,6 +108,11 @@ internal class Cell : ICell{
         set => SetColor(value.R, value.G, value.B);
     }
 
+    public float Fitness {
+        get => this[FitnessName];
+        set => this[FitnessName] = value;
+    }
+
     // SimColor getter using system cell characteristics
     internal SimColor GetColor() {
         return new SimColor((byte)this[ColorRName], (byte)this[ColorGName], (byte)this[ColorBName]);
