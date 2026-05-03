@@ -235,6 +235,7 @@ internal class Simulation {
         }
 
         Position realTo = ApplyCyclicBoundary(to);
+        realTo = ApplyBlockingBoundary(realTo);
 
         if (!WriteBuffer.TryGetValue(realFrom, out var cell)) {
             LastApiStatus = ApiStatus.CellNotFound;
@@ -412,19 +413,46 @@ internal class Simulation {
         return wrapped;
     }
 
+    private Position ApplyBlockingBoundary(Position pos) {
+        int x = pos.X;
+        int y = pos.Y;
+        int z = pos.Z;
+
+        if (World.Dimensions.Length > 0 && World.Dimensions[0] > 0 && World.BoundaryX == BoundaryMode.Blocking)
+            x = LimitCoordinate(x, World.Dimensions[0]);
+
+        if (World.Dimensions.Length > 1 && World.Dimensions[1] > 0 && World.BoundaryY == BoundaryMode.Blocking)
+            y = LimitCoordinate(y, World.Dimensions[1]);
+
+        if (World.Dimensions.Length > 2 && World.Dimensions[2] > 0 && World.BoundaryZ == BoundaryMode.Blocking)
+            z = LimitCoordinate(z, World.Dimensions[2]);
+
+        return new Position(x, y, z);
+    }
+
+    private static int LimitCoordinate(int value, int dimension) {
+        if (value < 0)
+            return 0;
+
+        if (value >= dimension)
+            return dimension - 1;
+
+        return value;
+    }
+
     private bool IsValidPosition(Position pos) {
         if (World.Dimensions.Length > 0 && World.Dimensions[0] > 0) {
-            if ((pos.X < 0 || pos.X >= World.Dimensions[0]) && World.BoundaryX == BoundaryMode.Void)
+            if (pos.X < 0 || pos.X >= World.Dimensions[0])
                 return false;
         }
 
         if (World.Dimensions.Length > 1 && World.Dimensions[1] > 0) {
-            if ((pos.Y < 0 || pos.Y >= World.Dimensions[1]) && World.BoundaryY == BoundaryMode.Void)
+            if (pos.Y < 0 || pos.Y >= World.Dimensions[1])
                 return false;
         }
 
         if (World.Dimensions.Length > 2 && World.Dimensions[2] > 0) {
-            if ((pos.Z < 0 || pos.Z >= World.Dimensions[2]) && World.BoundaryZ == BoundaryMode.Void)
+            if (pos.Z < 0 || pos.Z >= World.Dimensions[2])
                 return false;
         }
 
