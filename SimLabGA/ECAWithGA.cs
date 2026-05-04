@@ -33,6 +33,10 @@ public class ECAWithGA {
     // based on the rule associated with the layer. 
     private static bool[,,] s_states = new bool[0, 0, 0]; // [layer, row, col]
 
+    // targets: 
+    // for each array in each layer, there is one target value (0 or 1)
+    private static byte[,] s_targets = new byte[0, 0]; // [layer, array], target value: 0 or 1
+
     // helper method to read parameters for a specified simulation phase.
     private static string[] ReadParameters(string simulationPhase, ISimLabApi api) {
         string[] parameters = api.GetPlugInMethodParameters(simulationPhase);
@@ -133,6 +137,9 @@ public class ECAWithGA {
             InitializeRandomStates(random);
         }
 
+        // calculate target value for each array in each layer
+        CalculateTargets();
+
         // remove visualization and marker cells
         RemoveAllCells(api);
         // create REAL GA cells that will be evolved by GA
@@ -150,12 +157,99 @@ public class ECAWithGA {
         }
     }
 
+    // per-cell simulation phase
+    // for the current cell, ECA transformations are applied to arrays in the layer associated with that cell
+    // transformations are based on the rule associated with the cell, for a specified number of steps.
     public static void Update(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA update...");
+
+        ICellHandle? currentCellHandle = api.GetCurrentCell();
+        if (currentCellHandle == null) {
+            throw new Exception("Current GA cell is not set in Update phase.");
+        }
+
+        int layer = (int)currentCellHandle.Cell["layer"];
+        int rule = (int)currentCellHandle.Cell["rule"];
+
+        if (layer < 0 || layer >= s_rules) {
+            throw new Exception($"Invalid layer value '{layer}' in Update.");
+        }
+
+        if (rule < 0 || rule > 255) {
+            throw new Exception($"Invalid rule value '{rule}' in Update.");
+        }
+
+        // apply ECA transformations for the specified number of steps
+        for (int step = 0; step < s_steps; step++) { 
+            bool[,] nextLayerState = new bool[s_arrays, s_width];
+
+            // in each step, pass through all arrays in the layer
+            for (int row = 0; row < s_arrays; row++) {
+                // and apply ECA transformation to each cell in the array
+                for (int col = 0; col < s_width; col++) {
+                    bool left = col > 0 && s_states[layer, row, col - 1];
+                    bool center = s_states[layer, row, col];
+                    bool right = col < s_width - 1 && s_states[layer, row, col + 1];
+
+                    int leftBit = left ? 1 : 0;
+                    int centerBit = center ? 1 : 0;
+                    int rightBit = right ? 1 : 0;
+
+                    int pattern = (leftBit << 2) | (centerBit << 1) | rightBit;
+                    bool nextIsOne = ((rule >> pattern) & 1) == 1;
+
+                    nextLayerState[row, col] = nextIsOne;
+                }
+            }
+
+            for (int row = 0; row < s_arrays; row++) {
+                for (int col = 0; col < s_width; col++) {
+                    s_states[layer, row, col] = nextLayerState[row, col];
+                }
+            }
+        }
     }
 
+    // per-cell simulation phase
+    // for the current cell, calculate fitness 
     public static void Evaluation(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA evaluation...");
+
+        ICellHandle? currentCellHandle = api.GetCurrentCell();
+        if (currentCellHandle == null) {
+            throw new Exception("Current GA cell is not set in Evaluation phase.");
+        }
+
+        int layer = (int)currentCellHandle.Cell["layer"];
+        if (layer < 0 || layer >= s_rules) {
+            throw new Exception($"Invalid layer value '{layer}' in Evaluation.");
+        }
+
+        float errorSum = 0;
+
+        // for every array in the layer
+        for (int row = 0; row < s_arrays; row++) {
+            // calculate current density 
+            // (after ECA transformations in Update phase)
+            int ones = 0;
+            for (int col = 0; col < s_width; col++) {
+                if (s_states[layer, row, col]) {
+                    ones++;
+                }
+            }
+
+            float density = (float)ones / s_width;
+
+            // finally, calculate error for the array based on the target value
+            float error = s_targets[layer, row] == 1
+                ? 1 - density
+                : density;
+
+            errorSum += error; // sum errors for layer
+        }
+
+        // fitness value is average error across all arrays in the layer
+        currentCellHandle.Cell.Fitness = errorSum / s_arrays;
     }
 
     public static void Selection(ISimLabApi api) {
@@ -284,6 +378,26 @@ public class ECAWithGA {
                 for (int col = 0; col < s_width; col++) {
                     s_states[layer, row, col] = baseState[row, col];
                 }
+            }
+        }
+    }
+
+    // calculate target value for each array in each layer
+    // based on initial density before ECA transformations
+    private static void CalculateTargets() {
+        s_targets = new byte[s_rules, s_arrays];
+
+        for (int layer = 0; layer < s_rules; layer++) {
+            for (int row = 0; row < s_arrays; row++) {
+                int ones = 0;
+                for (int col = 0; col < s_width; col++) {
+                    if (s_states[layer, row, col]) {
+                        ones++;
+                    }
+                }
+
+                float density = (float)ones / s_width;
+                s_targets[layer, row] = density > 0.5f ? (byte)1 : (byte)0;
             }
         }
     }
