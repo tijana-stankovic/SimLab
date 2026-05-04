@@ -26,6 +26,7 @@ public class ECAWithGA {
 
     // this is the set of CA Wolfram rules we are evolving, one per layer. 
     private static int[] s_rulesByLayer = []; // Wolfram rule number (0..255) for each layer
+    private static int[] s_childrenRulesByLayer = []; // children rules for the next cycle
 
     // this is the current state of all CA layers
     // we use that to vizualize effect of ECA transformations to arrays in each layer, 
@@ -111,6 +112,7 @@ public class ECAWithGA {
         Console.WriteLine($"    [Plug-in] Initial visualization cells created: {createdCells}.");
     }
 
+    // transform visualization cells into GA cells that will be evolved by GA in the next simulation phases
     public static void PreCycle(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA precycle...");
 
@@ -133,38 +135,74 @@ public class ECAWithGA {
 
         // remove visualization and marker cells
         RemoveAllCells(api);
-        // create REAL CA cells that will be evolved by GA
+        // create REAL GA cells that will be evolved by GA
         CreateGACells(api);
     }
 
     public static void ProcessWorld(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA processworld...");
-        ReadParameters("processworld", api);
+
+        // temporary implementation:
+        // children are exactly the same as parents
+        s_childrenRulesByLayer = new int[s_rules];
+        for (int layer = 0; layer < s_rules; layer++) {
+            s_childrenRulesByLayer[layer] = s_rulesByLayer[layer];
+        }
     }
 
     public static void Update(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA update...");
-        ReadParameters("update", api);
     }
 
     public static void Evaluation(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA evaluation...");
-        ReadParameters("evaluation", api);
     }
 
     public static void Selection(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA selection...");
-        ReadParameters("selection", api);
     }
 
     public static void Reproduction(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA reproduction...");
-        ReadParameters("reproduction", api);
     }
 
+    // transform GA cells back into visualization cells
     public static void PostCycle(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA postcycle...");
-        ReadParameters("postcycle", api);
+
+        // remove GA cells
+        RemoveAllCells(api);
+
+        // recreate marker + visualization cells
+        for (int layer = 0; layer < s_rules; layer++) {
+            int yLayer = layer * LayerSpacing;
+            int parentRule = s_rulesByLayer[layer];
+            int childRule = s_childrenRulesByLayer[layer];
+
+            // marker cell will store children information for the next cycle
+            ICellHandle? markerCell = api.AddCell(MarkerX, yLayer, MarkerZ);
+            if (markerCell != null) {
+                markerCell.Cell["rule"] = childRule;
+                markerCell.Cell["layer"] = layer;
+                markerCell.Cell.Color = new Color(255, 255, 255);
+            }
+
+            // visualization cells will show the effect of parent rules
+            for (int row = 0; row < s_arrays; row++) {
+                for (int col = 0; col < s_width; col++) {
+                    if (!s_states[layer, row, col]) {
+                        continue;
+                    }
+
+                    ICellHandle? visualCell = api.AddCell(col, yLayer, row);
+                    if (visualCell != null) {
+                        visualCell.Cell["rule"] = parentRule;
+                        visualCell.Cell["layer"] = layer;
+                    }
+                }
+            }
+        }
+
         SaveState(api);
     }
 
@@ -298,7 +336,6 @@ public class ECAWithGA {
     }
 
     // remove all cells
-    // its purpose is to remove all visualization and marker cells before creating new GA cells.
     private static void RemoveAllCells(ISimLabApi api) {
         foreach (ICellHandle cellHandle in api.GetAllCells()) {
             api.RemoveCell(cellHandle.Position);
@@ -306,7 +343,7 @@ public class ECAWithGA {
     }
 
     // create GA cells for each layer
-    // this practically changes layers into CA cells
+    // this practically transforms layers into GA cells
     private static void CreateGACells(ISimLabApi api) {
         for (int layer = 0; layer < s_rules; layer++) {
             int rule = s_rulesByLayer[layer];

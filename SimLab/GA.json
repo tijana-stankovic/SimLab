@@ -5,7 +5,7 @@
     "dimensions": [0, 0, 0],
     "globals": ["rules", "arrays", "width", "steps", "epsilon"],
     "characteristics": ["rule", "layer"],
-    "mode": "SynchronousCA",
+    "mode": "Asynchronous",
     "foreground": [255, 0, 0],
 
     "initialization": {
