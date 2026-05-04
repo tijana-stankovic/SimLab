@@ -73,25 +73,9 @@ public class ECAWithGA {
             s_rulesByLayer[layer] = random.Next(0, 256); // Wolfram rule: 0..255
         }
 
-        // all layers start with the same random state of arrays
-        // this is base state we copy to all layers
-        s_states = new bool[s_rules, s_arrays, s_width];
-        bool[,] baseState = new bool[s_arrays, s_width];
-        for (int row = 0; row < s_arrays; row++) {
-            for (int col = 0; col < s_width; col++) {
-                baseState[row, col] = random.Next(0, 2) == 1;
-            }
-        }
-
         // all layers start with the same base state
         // then, due to the different CA rules, they will evolve differently
-        for (int layer = 0; layer < s_rules; layer++) {
-            for (int row = 0; row < s_arrays; row++) {
-                for (int col = 0; col < s_width; col++) {
-                    s_states[layer, row, col] = baseState[row, col];
-                }
-            }
-        }
+        InitializeRandomStates(random);
 
         // create visualization cells for the initial state of each layer
         int createdCells = 0;
@@ -129,8 +113,28 @@ public class ECAWithGA {
 
     public static void PreCycle(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA precycle...");
-        ReadParameters("precycle", api);
+
         RestoreState(api);
+
+        // rules are always loaded from marker cells
+        // in that way, resume works even for all-zero layers
+        LoadRulesFromMarkerCells(api);
+
+        if (api.Cycle == 0) {
+            // first cycle after initialization:
+            // read currently visualized state into s_states
+            LoadStatesFromVisualization(api);
+        } else {
+            // next cycles:
+            // generate new random states
+            Random random = new Random();
+            InitializeRandomStates(random);
+        }
+
+        // remove visualization and marker cells
+        RemoveAllCells(api);
+        // create REAL CA cells that will be evolved by GA
+        CreateGACells(api);
     }
 
     public static void ProcessWorld(ISimLabApi api) {
@@ -219,6 +223,102 @@ public class ECAWithGA {
 
         if (s_epsilon < 0) {
             throw new Exception("Invalid GA configuration. Epsilon must be >= 0.");
+        }
+    }
+
+    // all layers start with the same base state
+    // then, due to the different CA rules, they will evolve differently
+    private static void InitializeRandomStates(Random random) {
+        bool[,] baseState = new bool[s_arrays, s_width];
+
+        // initialize base state with random bits
+        for (int row = 0; row < s_arrays; row++) {
+            for (int col = 0; col < s_width; col++) {
+                baseState[row, col] = random.Next(0, 2) == 1;
+            }
+        }
+
+        s_states = new bool[s_rules, s_arrays, s_width];
+
+        // copy base state to all layers
+        for (int layer = 0; layer < s_rules; layer++) {
+            for (int row = 0; row < s_arrays; row++) {
+                for (int col = 0; col < s_width; col++) {
+                    s_states[layer, row, col] = baseState[row, col];
+                }
+            }
+        }
+    }
+
+    // read rules for each layer from marker cells
+    private static void LoadRulesFromMarkerCells(ISimLabApi api) {
+        s_rulesByLayer = new int[s_rules];
+
+        for (int layer = 0; layer < s_rules; layer++) {
+            int yLayer = layer * LayerSpacing;
+            ICellHandle? markerCell = api.TryGetCell(MarkerX, yLayer, MarkerZ);
+            if (markerCell == null) {
+                throw new Exception($"Missing marker cell for layer {layer} at position ({MarkerX},{yLayer},{MarkerZ}).");
+            }
+
+            int rule = (int)markerCell.Cell["rule"];
+            if (rule < 0 || rule > 255) {
+                throw new Exception($"Invalid rule value '{rule}' in marker cell for layer {layer}.");
+            }
+
+            s_rulesByLayer[layer] = rule;
+        }
+    }
+
+    // read currently visualized state into s_states
+    private static void LoadStatesFromVisualization(ISimLabApi api) {
+        s_states = new bool[s_rules, s_arrays, s_width];
+
+        foreach (ICellHandle cellHandle in api.GetAllCells()) {
+            Position pos = cellHandle.Position;
+
+            // skip marker cells
+            if (pos.X == MarkerX && pos.Z == MarkerZ) {
+                continue;
+            }
+
+            int layer = pos.Y / LayerSpacing;
+            if (layer < 0 || layer >= s_rules) {
+                throw new Exception($"Layer index out of range for visualization cell {pos}.");
+            }
+
+            int row = pos.Z;
+            int col = pos.X;
+            if (row < 0 || row >= s_arrays || col < 0 || col >= s_width) {
+                throw new Exception($"Visualization cell {pos} is outside configured array bounds.");
+            }
+
+            s_states[layer, row, col] = true;
+        }
+    }
+
+    // remove all cells
+    // its purpose is to remove all visualization and marker cells before creating new GA cells.
+    private static void RemoveAllCells(ISimLabApi api) {
+        foreach (ICellHandle cellHandle in api.GetAllCells()) {
+            api.RemoveCell(cellHandle.Position);
+        }
+    }
+
+    // create GA cells for each layer
+    // this practically changes layers into CA cells
+    private static void CreateGACells(ISimLabApi api) {
+        for (int layer = 0; layer < s_rules; layer++) {
+            int rule = s_rulesByLayer[layer];
+
+            ICellHandle? gaCell = api.AddCell(layer, -1, 0);
+            if (gaCell == null) {
+                throw new Exception($"Unable to create GA cell for layer {layer}.");
+            }
+
+            gaCell.Cell["layer"] = layer;
+            gaCell.Cell["rule"] = rule;
+            gaCell.Cell.Fitness = 0;
         }
     }
 
