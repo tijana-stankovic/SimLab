@@ -12,15 +12,16 @@ public class ECA {
         string[] parameters = api.GetPlugInMethodParameters(simulationPhase);
 
         if (parameters.Length == 0)
-            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}': no parameters.");
+            api.Debug($"    [Plug-in] Simulation phase '{simulationPhase}': no parameters.");
         else
-            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}' parameters: {string.Join(", ", parameters)}");
+            api.Debug($"    [Plug-in] Simulation phase '{simulationPhase}' parameters: {string.Join(", ", parameters)}");
 
         return parameters;
     }
 
     public static void Initialization(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA initialization...");
+        Console.WriteLine( "    [Plug-in] ECA simulation");
+        api.Debug("    [Plug-in] ECA initialization...");
         _nextActivePositions.Clear();
 
         string[] initializationParameters = ReadParameters("initialization", api);
@@ -32,7 +33,7 @@ public class ECA {
         string configFilePath = initializationParameters[0];
         string[] lines = File.ReadAllLines(configFilePath);
 
-        Console.WriteLine("    [Plug-in] ECA configuration loaded from file '{0}'.", configFilePath);
+        api.Debug($"    [Plug-in] ECA configuration loaded from file '{configFilePath}'.");
 
         List<string> dataLines = [];
 
@@ -68,17 +69,18 @@ public class ECA {
         foreach (int x in initialActivePositions) {
             ICellHandle? newCellHandle = api.AddCell(x, 0, 0);
             if (newCellHandle != null) {
-                Console.WriteLine($"    [Plug-in] New cell added at {newCellHandle.Position, -15}");
+                api.Debug($"    [Plug-in] New cell added at {newCellHandle.Position, -15}");
             }
         }
 
         SaveState(api);
 
-        Console.WriteLine($"    [Plug-in] ECA configured. Interval=[{_fromX},{_toX}], Rule={_ruleNumber}, Num of initial 1 ={initialActivePositions.Count}");
+        Console.WriteLine( "    [Plug-in] Initialization complete");
+        Console.WriteLine($"    [Plug-in] ECA configured. Interval=[{_fromX},{_toX}], Rule={_ruleNumber}, Num of initial 1 = {initialActivePositions.Count}");
     }
 
     public static void PreCycle(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA precycle...");
+        api.Debug("    [Plug-in] ECA precycle...");
 
         RestoreState(api);
 
@@ -99,7 +101,7 @@ public class ECA {
     }
 
     public static void ProcessWorld(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA processing world...");
+        api.Debug("    [Plug-in] ECA processing world...");
 
         for (int x = _fromX; x <= _toX; x++) {
             bool isAliveNow = api.TryGetCell(x, 0, 0) != null;

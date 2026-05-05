@@ -8,6 +8,7 @@ namespace SimLab.Output;
 internal class View {
     public static string FullLine { get; } = "--------------------------------------------------------------------------------";
     public static string FullDoubleLine { get; } = "================================================================================";
+    public static bool DebugEnabled { get; set; } = false;
 
     static public void Print(string line = "") {
         Console.WriteLine(line);
@@ -21,11 +22,19 @@ internal class View {
         }
     }
 
+    static public void Debug(string line = "") {
+        if (!DebugEnabled) {
+            return;
+        }
+
+        Print(line);
+    }
+
     /// <summary>
     /// Displays information about the SimLab application.
     /// </summary>
     static public void FullProgramInfo() {
-        string version = "0.7";
+        string version = "1.0";
         string projectName = "SimLab - Simulation Laboratory";
         string course = "Bachelor thesis";
         string author = "Tijana Stankovic";

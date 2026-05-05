@@ -62,7 +62,8 @@ public class ECAWithGA {
     // - initialize arrays content for each layer
     // - create visualization cells to show initial state of arrays in each layer.
     public static void Initialization(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA with GA initialization...");
+        Console.WriteLine( "    [Plug-in] ECA with GA simulation");
+        api.Debug("    [Plug-in] ECA with GA initialization...");
 
         // read initialization parameters
         string[] initializationParameters = ReadParameters("initialization", api);
@@ -74,7 +75,7 @@ public class ECAWithGA {
         // parse GA configuration from the file specified as the Initialization phase parameter in configuration file. 
         string configFilePath = initializationParameters[0];
         ParseGaConfiguration(configFilePath);
-        Console.WriteLine($"    [Plug-in] GA config loaded. R={s_rules}, N={s_arrays}, W={s_width}, S={s_steps}, Epsilon={s_epsilon}");
+        api.Debug($"    [Plug-in] GA config loaded. R={s_rules}, N={s_arrays}, W={s_width}, S={s_steps}, Epsilon={s_epsilon}");
 
         // calculate elite count based on the number of rules and elite percent
         s_eliteCount = (int)MathF.Ceiling(s_rules * ElitePercent);
@@ -126,12 +127,13 @@ public class ECAWithGA {
 
         SaveState(api);
 
-        Console.WriteLine($"    [Plug-in] Initial visualization cells created: {createdCells}.");
+        Console.WriteLine( "    [Plug-in] Initialization complete");
+        Console.WriteLine($"    [Plug-in] Initial visualization cells created: {createdCells + s_rules}.");
     }
 
     // transform visualization cells into GA cells that will be evolved by GA in the next simulation phases
     public static void PreCycle(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA with GA precycle...");
+        api.Debug("    [Plug-in] ECA with GA precycle...");
 
         RestoreState(api);
 
@@ -166,14 +168,14 @@ public class ECAWithGA {
     }
 
     public static void ProcessWorld(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA with GA processworld...");
+        api.Debug("    [Plug-in] ECA with GA processworld...");
     }
 
     // per-cell simulation phase
     // for the current cell, ECA transformations are applied to arrays in the layer associated with that cell
     // transformations are based on the rule associated with the cell, for a specified number of steps.
     public static void Update(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA with GA update...");
+        api.Debug("    [Plug-in] ECA with GA update...");
 
         ICellHandle? currentCellHandle = api.GetCurrentCell();
         if (currentCellHandle == null) {
@@ -225,7 +227,7 @@ public class ECAWithGA {
     // per-cell simulation phase
     // for the current cell, calculate fitness 
     public static void Evaluation(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA with GA evaluation...");
+        api.Debug("    [Plug-in] ECA with GA evaluation...");
 
         ICellHandle? currentCellHandle = api.GetCurrentCell();
         if (currentCellHandle == null) {
@@ -272,7 +274,7 @@ public class ECAWithGA {
     // per-cell simulation phase
     // if the current cell has elite fitness, add it to the elite queue
     public static void Reproduction(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA with GA reproduction...");
+        api.Debug("    [Plug-in] ECA with GA reproduction...");
 
         ICellHandle? currentCellHandle = api.GetCurrentCell();
         if (currentCellHandle == null) {
@@ -292,7 +294,7 @@ public class ECAWithGA {
     // per-cell simulation phase
     // remove non-elite cells from the simulation, so only elite rules survive to the next cycle
     public static void Selection(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA with GA selection...");
+        api.Debug("    [Plug-in] ECA with GA selection...");
 
         // since the queue has no efficient search, 
         // we build a hash set from the queue
@@ -317,7 +319,7 @@ public class ECAWithGA {
     // create children rules based on elite parents and 
     // transform GA cells back into visualization cells
     public static void PostCycle(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA with GA postcycle...");
+        api.Debug("    [Plug-in] ECA with GA postcycle...");
 
         // parent rules goes to the next cycle directly
         CopyParentRulesToChildren();
@@ -370,9 +372,9 @@ public class ECAWithGA {
         string[] parameters = api.GetPlugInMethodParameters(simulationPhase);
 
         if (parameters.Length == 0)
-            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}': no parameters.");
+            api.Debug($"    [Plug-in] Simulation phase '{simulationPhase}': no parameters.");
         else
-            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}' parameters: {string.Join(", ", parameters)}");
+            api.Debug($"    [Plug-in] Simulation phase '{simulationPhase}' parameters: {string.Join(", ", parameters)}");
 
         return parameters;
     }

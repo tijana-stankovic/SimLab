@@ -10,15 +10,16 @@ public class GameOfLife {
         string[] parameters = api.GetPlugInMethodParameters(simulationPhase);
 
         if (parameters.Length == 0)
-            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}': no parameters.");
+            api.Debug($"    [Plug-in] Simulation phase '{simulationPhase}': no parameters.");
         else
-            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}' parameters: {string.Join(", ", parameters)}");
+            api.Debug($"    [Plug-in] Simulation phase '{simulationPhase}' parameters: {string.Join(", ", parameters)}");
 
         return parameters;
     }
 
     public static void Initialization(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] Game of Life initialization...");
+        Console.WriteLine( "    [Plug-in] Game Of Life simulation");
+        api.Debug("    [Plug-in] Game of Life initialization...");
         _initializationParameters = ReadParameters("initialization", api);
 
         if (_initializationParameters.Length == 0) {
@@ -29,7 +30,8 @@ public class GameOfLife {
         string configFilePath = _initializationParameters[0];
         string[] lines = File.ReadAllLines(configFilePath);
 
-        Console.WriteLine("    [Plug-in] Cell positions loaded from file '{0}'.", configFilePath);
+        api.Debug($"    [Plug-in] Cell positions loaded from file '{configFilePath}'.");
+        int n = 0;
         foreach (string rawLine in lines) {
             string line = rawLine.Trim();
 
@@ -42,13 +44,17 @@ public class GameOfLife {
 
             ICellHandle? newCellHandle = api.AddCell(new Position(x, y, 0));
             if (newCellHandle != null) {
-                Console.WriteLine($"    [Plug-in] New cell added at {newCellHandle.Position, -15}");
+                api.Debug($"    [Plug-in] New cell added at {newCellHandle.Position, -15}");
+                n++;
             }
         }
+
+        Console.WriteLine( "    [Plug-in] Initialization complete");
+        Console.WriteLine($"    [Plug-in] Total cells added: {n}");
     }
 
     public static void PreCycle(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] Game of Life precycle...");
+        api.Debug("    [Plug-in] Game of Life precycle...");
         _candidatePositions.Clear();
 
         foreach (ICellHandle cellHandle in api.GetAllCells()) {
@@ -59,11 +65,11 @@ public class GameOfLife {
             }
         }
 
-        Console.WriteLine($"    [Plug-in] Candidate positions prepared: {_candidatePositions.Count}");
+        api.Debug($"    [Plug-in] Candidate positions prepared: {_candidatePositions.Count}");
     }
 
     public static void ProcessWorld(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] Game of Life processing world...");
+        api.Debug("    [Plug-in] Game of Life processing world...");
 
         foreach (Position position in _candidatePositions) {
             bool isAlive = api.TryGetCell(position) != null;

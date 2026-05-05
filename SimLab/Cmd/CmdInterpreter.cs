@@ -82,6 +82,11 @@ internal class CmdInterpreter {
                 Show(cmd.Args);
                 break;
 
+            case "D":
+            case "DEBUG":
+                Debug(cmd.Args);
+                break;
+
             default:
                 StatusCode = StatusCode.UnknownCommand;
                 View.PrintStatus(StatusCode);
@@ -112,12 +117,12 @@ internal class CmdInterpreter {
         View.Print("  Run/control simulation.");
         View.Print("  Subcommands:");
         View.Print("    - SIMULATION NEXT [<number-of-cycles>]");
-        View.Print("    - SIMULATION SHOW [<frame-number>]");
+        View.Print("    - SIMULATION SHOW");
         View.Print("    - SIMULATION INIT");
-        View.Print("- SHOW (S) [<frame-number>]");
+        View.Print("- SHOW (S)");
         View.Print("  Open the visualization window for generated frames.");
-        View.Print("- TEST (T)");
-        View.Print("  Test a plug-in method.");
+        View.Print("- DEBUG (D) [ON|OFF]");
+        View.Print("  Display or change debug output status.");
     }
 
     /// <summary>
@@ -126,6 +131,34 @@ internal class CmdInterpreter {
     /// </summary>
     static private void About() {
         View.FullProgramInfo();
+    }
+
+    static private void Debug(string[] args) {
+        if (args.Length > 1) {
+            View.Print("Use: DEBUG [ON|OFF]");
+            return;
+        }
+
+        if (args.Length == 0) {
+            View.Print($"Debug output is {(View.DebugEnabled ? "ON" : "OFF")}.");
+            return;
+        }
+
+        string arg = args[0].ToUpperInvariant();
+
+        if (arg == "ON") {
+            View.DebugEnabled = true;
+            View.Print("Debug output is ON.");
+            return;
+        }
+
+        if (arg == "OFF") {
+            View.DebugEnabled = false;
+            View.Print("Debug output is OFF.");
+            return;
+        }
+
+        View.Print("Use: DEBUG [ON|OFF]");
     }
 
     /// <summary>
@@ -441,7 +474,7 @@ internal class CmdInterpreter {
             return;
         }
 
-        View.Print(""); View.Print(""); View.Print("");
+        View.Debug(""); View.Debug(""); View.Debug("");
 
         Simulation sim = Simulation;
         var api = new API(sim);
@@ -452,22 +485,30 @@ internal class CmdInterpreter {
             sim.BeginCycle();
             
             if (sim.InitializationMethod != null) {
-                View.Print("[Simulation] Calling plug-in initialization method.");
+                View.Debug("[Simulation] Calling plug-in initialization method.");
                 if (PlugIn.Execute(sim.InitializationMethod, api, out var error))
-                    View.Print("[Simulation] Initialization completed successfully.");
+                    View.Debug("[Simulation] Initialization completed successfully.");
                 else
                     View.Print($"[Simulation] Initialization error: {error}");
             }
             sim.EndCycle();
             FrameBuffer?.Capture(sim);
             if (Database != null) {
+                View.Print($"[Simulation] Saving initial state to database... ", false);
                 if (!Database.SaveCurrentState(sim, out string? saveError)) {
-                    View.Print($"[Simulation] Failed to save cycle {sim.Cycle} to database: {saveError}");
+                    View.Print($"failed.");
+                    View.Print($"Error: {saveError}");
+                } else {
+                    View.Print($"Ok.");
                 }
             }
-            PrintCellCharacteristics(sim, "Initial characteristics of all cells:");
+            if (View.DebugEnabled) {
+                PrintCellCharacteristics(sim, "Initial characteristics of all cells:");
+            }
         } else {
-            PrintCellCharacteristics(sim, "Current characteristics of all cells:");
+            if (View.DebugEnabled) {
+                PrintCellCharacteristics(sim, "Current characteristics of all cells:");
+            }
         }
 
 
@@ -480,7 +521,7 @@ internal class CmdInterpreter {
             void ExecuteIfNotNull(MethodInfo? method) {
                 if (method != null) {
                     if (PlugIn.Execute(method, api, out var error)) 
-                        View.Print($"    [Simulation] Plug-in method {method.Name} executed successfully.");
+                        View.Debug($"    [Simulation] Plug-in method {method.Name} executed successfully.");
                     else 
                         View.Print($"    [Simulation] Error executing plug-in method {method.Name}: {error}");
                 }
@@ -522,15 +563,21 @@ internal class CmdInterpreter {
             sim.EndCycle();
             FrameBuffer?.Capture(sim);
             if (Database != null) {
+                View.Print($"[Simulation] Saving data to database [{sim.GetCellCount()} cell(s)]... ", false);
                 if (!Database.SaveCurrentState(sim, out string? saveError)) {
-                    View.Print($"[Simulation] Failed to save cycle {sim.Cycle} to database: {saveError}");
+                    View.Print($"failed.");
+                    View.Print($"Error: {saveError}");
+                } else {
+                    View.Print($"Ok.");
                 }
             }
 
-            PrintCellCharacteristics(sim, "Characteristics of all cells after cycle " + sim.Cycle + ":");
+            if (View.DebugEnabled) {
+                PrintCellCharacteristics(sim, "Characteristics of all cells after cycle " + sim.Cycle + ":");
+            }
         }
 
-        View.Print(""); View.Print(""); View.Print("");
+        View.Debug(""); View.Debug(""); View.Debug("");
     }
 
     // go through all cells and print their characteristics

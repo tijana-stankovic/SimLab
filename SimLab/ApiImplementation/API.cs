@@ -1,6 +1,7 @@
 ﻿using SimLabApi;
 using SimLab.Simulator;
 using SimLab.Configuration;
+using SimLab.Output;
 using ApiColor = SimLabApi.Color;
 using ApiPosition = SimLabApi.Position;
 using SimColor = SimLab.Simulator.Color;
@@ -265,6 +266,10 @@ internal class API(Simulation? sim) : ISimLabApi {
             return ApiStatus.NoActiveSimulation;
 
         return _sim.LastApiStatus;
+    }
+
+    public void Debug(string message = "") {
+        View.Debug(message);
     }
 
 }

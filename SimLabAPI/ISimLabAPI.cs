@@ -46,4 +46,5 @@ public interface ISimLabApi {
     public string[] GetPlugInMethodParameters(PhaseName simulationPhase);
     public string[] GetPlugInMethodParameters(string simulationPhase);
     public ApiStatus LastStatus();
+    public void Debug(string message = "");
 }

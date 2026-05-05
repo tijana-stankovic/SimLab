@@ -14,15 +14,16 @@ public class ECA_2D {
         string[] parameters = api.GetPlugInMethodParameters(simulationPhase);
 
         if (parameters.Length == 0)
-            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}': no parameters.");
+            api.Debug($"    [Plug-in] Simulation phase '{simulationPhase}': no parameters.");
         else
-            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}' parameters: {string.Join(", ", parameters)}");
+            api.Debug($"    [Plug-in] Simulation phase '{simulationPhase}' parameters: {string.Join(", ", parameters)}");
 
         return parameters;
     }
 
     public static void Initialization(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA initialization...");
+        Console.WriteLine( "    [Plug-in] ECA 2D simulation");
+        api.Debug("    [Plug-in] ECA 2D initialization...");
 
         // set the color of the newly created cells
         api.ForegroundColor = new Color(0, 255, 255);
@@ -32,14 +33,14 @@ public class ECA_2D {
 
         string[] initializationParameters = ReadParameters("initialization", api);
         if (initializationParameters.Length == 0) {
-            Console.WriteLine("    [Plug-in] No ECA configuration file specified.");
+            Console.WriteLine("    [Plug-in] No ECA 2D configuration file specified.");
             return;
         }
 
         string configFilePath = initializationParameters[0];
         string[] lines = File.ReadAllLines(configFilePath);
 
-        Console.WriteLine("    [Plug-in] ECA configuration loaded from file '{0}'.", configFilePath);
+        api.Debug($"    [Plug-in] ECA 2D configuration loaded from file '{configFilePath}'.");
 
         List<string> dataLines = [];
 
@@ -53,7 +54,7 @@ public class ECA_2D {
         }
 
         if (dataLines.Count < 2) {
-            throw new Exception("ECA config must contain at least 2 lines: interval and rule number.");
+            throw new Exception("ECA 2D config must contain at least 2 lines: interval and rule number.");
         }
 
         (int fromX, int toX) = ParseInterval(dataLines[0]);
@@ -75,17 +76,18 @@ public class ECA_2D {
         foreach (int x in initialActivePositions) {
             ICellHandle? newCellHandle = api.AddCell(x, 0, 0);
             if (newCellHandle != null) {
-                Console.WriteLine($"    [Plug-in] New cell added at {newCellHandle.Position, -15}");
+                api.Debug($"    [Plug-in] New cell added at {newCellHandle.Position, -15}");
             }
         }
 
         SaveState(api);
 
-        Console.WriteLine($"    [Plug-in] ECA configured. Interval=[{_fromX},{_toX}], Rule={_ruleNumber}, Num of initial 1 ={initialActivePositions.Count}");
+        Console.WriteLine( "    [Plug-in] Initialization complete");
+        Console.WriteLine($"    [Plug-in] ECA 2D configured. Interval=[{_fromX},{_toX}], Rule={_ruleNumber}, Num of initial 1 = {initialActivePositions.Count}");
     }
 
     public static void PreCycle(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA precycle...");
+        api.Debug("    [Plug-in] ECA 2D precycle...");
 
         RestoreState(api);
 
@@ -106,7 +108,7 @@ public class ECA_2D {
     }
 
     public static void ProcessWorld(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA processing world...");
+        api.Debug("    [Plug-in] ECA 2D processing world...");
 
         int nextY = _currentY + 1;
 
@@ -149,7 +151,7 @@ public class ECA_2D {
     private static int ParseRule(string line) {
         int rule = int.Parse(line);
         if (rule < 0 || rule > 255) {
-            throw new Exception($"Invalid ECA rule '{rule}'. Expected value in [0,255].");
+            throw new Exception($"Invalid ECA 2D rule '{rule}'. Expected value in [0,255].");
         }
 
         return rule;
