@@ -3,7 +3,7 @@
     "name": "ECA with Genetic Algorithm (3D visualization)",
     "space": 3,
     "dimensions": [0, 0, 0],
-    "globals": ["rules", "arrays", "width", "steps", "epsilon"],
+    "globals": ["rules", "arrays", "width", "steps", "epsilon", "elitecount"],
     "characteristics": ["rule", "layer"],
     "mode": "Asynchronous",
     "foreground": [255, 0, 0],

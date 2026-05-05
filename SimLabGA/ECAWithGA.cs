@@ -1,13 +1,18 @@
 ﻿// Evolving Cellular Automata with Genetic Algorithms (ECA with GA)
-// based on: https://melaniemitchell.me/PapersContent/evca-review.pdf
+// Based on: https://melaniemitchell.me/PapersContent/evca-review.pdf
 // Authors: Melanie Mitchell, James Crutchfield (Santa Fe Institute), Rajarshi Das (IBM Watson Research)
 
 using SimLabApi;
+using System.Globalization;
 
 namespace SimLabGA;
 
 public class ECAWithGA {
-    private const int LayerSpacing = 10;
+    private const int LayerSpacing = 50; // spacing between layers in the visualization
+
+    // GA parameters
+    private const float ElitePercent = 0.20f;
+    private const float MutationProbability = 0.02f;
 
     // marker cells coordinates: [MarkerX, layer * LayerSpacing, MarkerZ] 
     // they store the rule number and layer index as cell properties
@@ -23,6 +28,7 @@ public class ECAWithGA {
     private static int s_width; // array width (number of bits in one array)
     private static int s_steps; // number of ECA steps per simulation cycle
     private static float s_epsilon; // target average error threshold
+    private static int s_eliteCount; // number of elite rules
 
     // this is the set of CA Wolfram rules we are evolving, one per layer. 
     private static int[] s_rulesByLayer = []; // Wolfram rule number (0..255) for each layer
@@ -37,17 +43,18 @@ public class ECAWithGA {
     // for each array in each layer, there is one target value (0 or 1)
     private static byte[,] s_targets = new byte[0, 0]; // [layer, array], target value: 0 or 1
 
-    // helper method to read parameters for a specified simulation phase.
-    private static string[] ReadParameters(string simulationPhase, ISimLabApi api) {
-        string[] parameters = api.GetPlugInMethodParameters(simulationPhase);
+    // layers that achieved fitness below epsilon in the current cycle
+    private static HashSet<int> s_successLayers = [];
 
-        if (parameters.Length == 0)
-            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}': no parameters.");
-        else
-            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}' parameters: {string.Join(", ", parameters)}");
-
-        return parameters;
+    // helper structures
+    private static PriorityQueue<GaCandidate, float> s_eliteQueue = new();
+    private static List<GaCandidate> s_eliteParents = [];
+    private static HashSet<int> s_eliteRules = [];
+    private struct GaCandidate {
+        public int Rule;
+        public float Fitness;
     }
+
 
     // initialization phase: 
     // - read GA config, 
@@ -68,6 +75,12 @@ public class ECAWithGA {
         string configFilePath = initializationParameters[0];
         ParseGaConfiguration(configFilePath);
         Console.WriteLine($"    [Plug-in] GA config loaded. R={s_rules}, N={s_arrays}, W={s_width}, S={s_steps}, Epsilon={s_epsilon}");
+
+        // calculate elite count based on the number of rules and elite percent
+        s_eliteCount = (int)MathF.Ceiling(s_rules * ElitePercent);
+        if (s_eliteCount < 1) {
+            s_eliteCount = 1;
+        }
 
         Random random = new Random(); // random generator to create initial rules and states
 
@@ -140,6 +153,12 @@ public class ECAWithGA {
         // calculate target value for each array in each layer
         CalculateTargets();
 
+        s_childrenRulesByLayer = [];
+        s_eliteQueue = new PriorityQueue<GaCandidate, float>();
+        s_eliteParents = [];
+        s_eliteRules = [];
+        s_successLayers = [];
+
         // remove visualization and marker cells
         RemoveAllCells(api);
         // create REAL GA cells that will be evolved by GA
@@ -148,13 +167,6 @@ public class ECAWithGA {
 
     public static void ProcessWorld(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA processworld...");
-
-        // temporary implementation:
-        // children are exactly the same as parents
-        s_childrenRulesByLayer = new int[s_rules];
-        for (int layer = 0; layer < s_rules; layer++) {
-            s_childrenRulesByLayer[layer] = s_rulesByLayer[layer];
-        }
     }
 
     // per-cell simulation phase
@@ -249,22 +261,71 @@ public class ECAWithGA {
         }
 
         // fitness value is average error across all arrays in the layer
-        currentCellHandle.Cell.Fitness = errorSum / s_arrays;
+        float fitness = errorSum / s_arrays;
+        currentCellHandle.Cell.Fitness = fitness;
+
+        if (fitness < s_epsilon) {
+            s_successLayers.Add(layer);
+        }
     }
 
-    public static void Selection(ISimLabApi api) {
-        Console.WriteLine("    [Plug-in] ECA with GA selection...");
-    }
-
+    // per-cell simulation phase
+    // if the current cell has elite fitness, add it to the elite queue
     public static void Reproduction(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA reproduction...");
+
+        ICellHandle? currentCellHandle = api.GetCurrentCell();
+        if (currentCellHandle == null) {
+            throw new Exception("Current GA cell is not set in Reproduction phase.");
+        }
+
+        int rule = (int)currentCellHandle.Cell["rule"];
+        float fitness = currentCellHandle.Cell.Fitness;
+
+        if (rule < 0 || rule > 255) {
+            throw new Exception($"Invalid rule value '{rule}' in Reproduction.");
+        }
+
+        AddEliteCandidate(rule, fitness);
     }
 
+    // per-cell simulation phase
+    // remove non-elite cells from the simulation, so only elite rules survive to the next cycle
+    public static void Selection(ISimLabApi api) {
+        Console.WriteLine("    [Plug-in] ECA with GA selection...");
+
+        // since the queue has no efficient search, 
+        // we build a hash set from the queue
+        if (s_eliteRules.Count == 0) {
+            s_eliteRules = s_eliteQueue.UnorderedItems
+                .Select(item => item.Element.Rule)
+                .ToHashSet();
+        }
+
+        ICellHandle? currentCellHandle = api.GetCurrentCell();
+        if (currentCellHandle == null) {
+            throw new Exception("Current GA cell is not set in Selection phase.");
+        }
+
+        // if cell's rule is not in the elite set, remove the cell from the simulation
+        int rule = (int)currentCellHandle.Cell["rule"];
+        if (!s_eliteRules.Contains(rule)) {
+            api.RemoveCurrentCell();
+        }
+    }
+
+    // create children rules based on elite parents and 
     // transform GA cells back into visualization cells
     public static void PostCycle(ISimLabApi api) {
         Console.WriteLine("    [Plug-in] ECA with GA postcycle...");
 
-        // remove GA cells
+        // parent rules goes to the next cycle directly
+        CopyParentRulesToChildren();
+
+        // add children rules
+        FillChildrenRules();
+
+        // remove GA remaining cells
         RemoveAllCells(api);
 
         // recreate marker + visualization cells
@@ -278,7 +339,11 @@ public class ECAWithGA {
             if (markerCell != null) {
                 markerCell.Cell["rule"] = childRule;
                 markerCell.Cell["layer"] = layer;
-                markerCell.Cell.Color = new Color(255, 255, 255);
+                // if the layer was successful in the current cycle, 
+                // color the marker cell green, otherwise white
+                markerCell.Cell.Color = s_successLayers.Contains(layer)
+                    ? new Color(0, 255, 0)
+                    : new Color(255, 255, 255);
             }
 
             // visualization cells will show the effect of parent rules
@@ -298,6 +363,18 @@ public class ECAWithGA {
         }
 
         SaveState(api);
+    }
+
+    // helper method to read parameters for a specified simulation phase.
+    private static string[] ReadParameters(string simulationPhase, ISimLabApi api) {
+        string[] parameters = api.GetPlugInMethodParameters(simulationPhase);
+
+        if (parameters.Length == 0)
+            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}': no parameters.");
+        else
+            Console.WriteLine($"    [Plug-in] Simulation phase '{simulationPhase}' parameters: {string.Join(", ", parameters)}");
+
+        return parameters;
     }
 
     // read simulation parameters from the plugin configuration file
@@ -347,7 +424,7 @@ public class ECAWithGA {
         s_arrays = int.Parse(valuesByKey["N"]);
         s_width = int.Parse(valuesByKey["W"]);
         s_steps = int.Parse(valuesByKey["S"]);
-        s_epsilon = float.Parse(valuesByKey["Epsilon"]);
+        s_epsilon = float.Parse(valuesByKey["Epsilon"], CultureInfo.InvariantCulture);
 
         if (s_rules <= 0 || s_arrays <= 0 || s_width <= 0 || s_steps <= 0) {
             throw new Exception("Invalid GA configuration. R, N, W, and S must be > 0.");
@@ -400,6 +477,114 @@ public class ECAWithGA {
                 s_targets[layer, row] = density > 0.5f ? (byte)1 : (byte)0;
             }
         }
+    }
+
+    // add candidate with elite fitness to the elite queue
+    private static void AddEliteCandidate(int rule, float fitness) {
+        GaCandidate candidate = new() {
+            Rule = rule,
+            Fitness = fitness
+        };
+
+        // PriorityQueue is a min-heap, so we use negative fitness as priority 
+        // to make minimal value (the best fitness) have the highest priority in the queue
+        float priority = -fitness;
+
+        // if we still have space in the elite queue
+        // just add the candidate
+        if (s_eliteQueue.Count < s_eliteCount) { 
+            s_eliteQueue.Enqueue(candidate, priority); 
+            return;
+        }
+
+        // get current worst fitness
+        if (!s_eliteQueue.TryPeek(out _, out float worstPriority)) {
+            return;
+        }
+
+        // if the candidate is better than the worst in the elite queue, 
+        // replace the worst with the candidate
+        float worstFitness = -worstPriority;
+        if (fitness < worstFitness) {
+            s_eliteQueue.Dequeue();
+            s_eliteQueue.Enqueue(candidate, priority);
+        }
+    }
+
+    // copy elite parents rules to the next generation
+    private static void CopyParentRulesToChildren() {
+        s_eliteParents = s_eliteQueue.UnorderedItems
+            .Select(item => item.Element)
+            .OrderBy(c => c.Fitness)
+            .ToList();
+
+        s_childrenRulesByLayer = new int[s_rules];
+        for (int i = 0; i < s_rules; i++) {
+            s_childrenRulesByLayer[i] = -1;
+        }
+
+        int eliteIndex = 0;
+        foreach (GaCandidate elite in s_eliteParents) {
+            if (eliteIndex >= s_rules) {
+                break;
+            }
+
+            s_childrenRulesByLayer[eliteIndex] = elite.Rule;
+            eliteIndex++;
+        }
+    }
+
+    // create children rules based on elite parents using crossover and mutation
+    private static void FillChildrenRules() {
+        if (s_eliteParents.Count == 0) {
+            throw new Exception("Elite parent list is empty.");
+        }
+
+        Random random = new();
+        for (int layer = 0; layer < s_rules; layer++) {
+            if (s_childrenRulesByLayer[layer] != -1) {
+                continue;
+            }
+
+            // randomly select two parents from the elite set with replacement
+            int parentA = s_eliteParents[random.Next(0, s_eliteParents.Count)].Rule;
+            int parentB = s_eliteParents[random.Next(0, s_eliteParents.Count)].Rule;
+
+            // create child rule by crossover and mutation
+            int childRule = Crossover(parentA, parentB, random);
+            childRule = Mutate(childRule, random);
+
+            s_childrenRulesByLayer[layer] = childRule;
+        }
+    }
+
+    // single-point crossover between two parent rules
+    private static int Crossover(int parentA, int parentB, Random random) {
+        int crossoverPoint = random.Next(1, 8);
+        int lowerMask = (1 << crossoverPoint) - 1;
+        int upperMask = 0xFF ^ lowerMask;
+
+        return (parentA & upperMask) | (parentB & lowerMask);
+    }
+
+    // mutation by flipping bits with a certain probability
+    // randomly chose a bit position and flip it with MutationProbability
+    private static int Mutate(int rule, Random random) {
+        int result = rule;
+
+        // int bit = random.Next(0, 8);
+        // if (random.NextDouble() < MutationProbability) {
+        //     result ^= (1 << bit);
+        // }
+
+        for (int bit = 0; bit < 8; bit++) {
+          if (random.NextDouble() < MutationProbability) {
+            result ^= (1 << bit);
+          }
+        }
+
+
+        return result;
     }
 
     // read rules for each layer from marker cells
@@ -480,6 +665,7 @@ public class ECAWithGA {
         api.Globals["width"] = s_width;
         api.Globals["steps"] = s_steps;
         api.Globals["epsilon"] = s_epsilon;
+        api.Globals["elitecount"] = s_eliteCount;
     }
 
     // restore simulation parameters from api.Globals at the beginning of each cycle.
@@ -489,5 +675,6 @@ public class ECAWithGA {
         s_width = (int)api.Globals["width"];
         s_steps = (int)api.Globals["steps"];
         s_epsilon = (float)api.Globals["epsilon"];
+        s_eliteCount = (int)api.Globals["elitecount"];
     }
 }
