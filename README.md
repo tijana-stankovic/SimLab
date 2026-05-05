@@ -36,6 +36,10 @@ dotnet build SimLabGA
 dotnet build SimLab
 ```
 
+## PostgreSQL installation
+
+You can found installation instruction in the file `SimLab\Scripts\PostgreSQL\install.txt`
+
 ## Run
 
 Note: Configure database connection in **SimLab/DatabaseConfig.json**  

@@ -1,0 +1,35 @@
+=======================================
+How to install SimLab PostgreSQL tables
+=======================================
+
+1. Download PostgreSQL installer from:
+      https://www.postgresql.org/download/  
+   
+   Windows version: 
+      https://www.postgresql.org/download/windows/
+
+2. After instalation, navigate to subfolder SimLab\Scripts\PostgreSQL.
+
+3  Now, connect to database, using command:
+      psql -U postgres -h localhost
+
+4. Then, execute commands:
+      CREATE DATABASE simlab;
+      CREATE USER simlab WITH PASSWORD '<simlab-db-password>';
+      GRANT ALL PRIVILEGES ON DATABASE simlab TO simlab;
+      \c simlab
+      GRANT ALL ON SCHEMA public TO simlab;
+      \quit
+
+5. Now, connect again to PostgreSQL using command:
+      psql -U simlab -h localhost -d simlab
+
+6. Nenxt, create SimLab tables using command:
+      \i create.sql
+
+7. You can exit with:
+      \quit
+
+
+
+
